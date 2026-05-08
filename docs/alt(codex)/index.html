@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weekly для Евгения · alt(codex)</title>
+  <link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Weekly для Евгения · alt(codex)</h1>
+        <p id="subtitle">Загрузка отчета...</p>
+      </div>
+      <div class="actions">
+        <button id="copyQuestionsBtn" type="button">Вопросы</button>
+        <button id="copySyncBtn" type="button">Sync</button>
+        <button id="copyFeedbackBtn" type="button">Комментарии</button>
+        <button id="refreshBtn" type="button">Обновить</button>
+      </div>
+    </header>
+
+    <section id="metrics" class="metrics" aria-label="Сводка"></section>
+
+    <section class="controls" aria-label="Фильтры отчета">
+      <div class="tabs" id="tabs">
+        <button class="active" data-filter="all" type="button">Все</button>
+        <button data-filter="sync" type="button">Нужен sync</button>
+        <button data-filter="questions" type="button">Вопросы</button>
+        <button data-filter="movement" type="button">Есть движение</button>
+        <button data-filter="no_movement" type="button">Без движения</button>
+      </div>
+      <div class="search-wrap">
+        <input id="search" placeholder="Поиск по теме, результату, вехе">
+      </div>
+    </section>
+
+    <section class="content">
+      <aside class="summary-panel">
+        <h2>Что требует внимания</h2>
+        <div id="attentionList" class="attention-list"></div>
+      </aside>
+      <section class="report-list" id="reportList" aria-label="Строки weekly"></section>
+    </section>
+  </main>
+  <div id="commentModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="commentTitle">
+    <div class="modal-backdrop" data-close-comment></div>
+    <section class="modal-card">
+      <header class="modal-head">
+        <div>
+          <h2 id="commentTitle">Комментарий</h2>
+          <p id="commentContext">—</p>
+        </div>
+        <button id="commentCloseBtn" type="button">Закрыть</button>
+      </header>
+      <div id="existingComments" class="existing-comments"></div>
+      <div class="comment-tools">
+        <button id="voiceCommentBtn" class="voice-btn" type="button">
+          <span class="mic-icon" aria-hidden="true"></span>
+          <span id="voiceCommentLabel">Голосом</span>
+        </button>
+        <span id="voiceStatus" class="voice-status"></span>
+      </div>
+      <textarea id="commentText" rows="5" placeholder="Комментарий или вопрос по этому полю"></textarea>
+      <footer class="modal-actions">
+        <button id="commentCancelBtn" type="button">Отмена</button>
+        <button id="commentSaveBtn" class="primary" type="button">Сохранить</button>
+      </footer>
+    </section>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+  <script>window.WEEKLY_VIEWER_STATIC = true;</script>
+  <script src="viewer.js"></script>
+</body>
+</html>
