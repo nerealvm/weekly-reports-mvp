@@ -7,7 +7,7 @@
 const SHEETS_CONFIG = {
   spreadsheetId: "14vjMSr2YaGRcD9Ud1zrDvULhEIE6o5kmZkKfdxarSFs",
   apiKey: "",          // ← API-ключ для чтения данных из Sheets
-  appsScriptUrl: "",   // ← URL задеплоенного Apps Script (для записи комментариев)
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbxqO_xtAfwH3jmstuS-uEl8696HMEeEp_KmTMSegmy5sw4hUgoMo2ra3Yje0ZisuSS6/exec",   // ← URL задеплоенного Apps Script (для записи комментариев)
   sheetPattern: /^Weekly MVP \d{4}-\d{2}-\d{2}$/,
 };
 
