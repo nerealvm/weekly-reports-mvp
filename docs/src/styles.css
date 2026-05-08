@@ -786,16 +786,20 @@ body[data-density="compact"] .field { margin-bottom: 18px; }
   outline: 2px solid color-mix(in oklab, var(--accent) 35%, transparent);
   outline-offset: -3px;
 }
+.stats-strip > .stat {
+  padding-bottom: 36px; /* room for stat-go without overlap */
+  overflow: hidden;
+}
 .stats-strip > .stat .stat-go {
-  position: absolute; right: 18px; bottom: 14px;
+  position: absolute; right: 18px; bottom: 10px;
   font-family: var(--mono); font-size: 9.5px;
   letter-spacing: 0.06em; color: var(--ink-3);
-  opacity: 0; transform: translateY(2px);
-  transition: opacity .15s, transform .15s;
+  opacity: 0;
+  transition: opacity .15s;
   text-transform: uppercase;
   white-space: nowrap;
 }
-.stats-strip > .stat:hover .stat-go { opacity: 1; transform: translateY(0); }
+.stats-strip > .stat:hover .stat-go { opacity: 1; }
 .stats-strip > .stat[aria-pressed="true"] {
   background: color-mix(in oklab, var(--accent) 5%, var(--paper));
 }

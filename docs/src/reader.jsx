@@ -11,23 +11,46 @@ function useComments() {
   return c;
 }
 
-function CommentsProvider({ children }) {
+function CommentsProvider({ children, week }) {
   const [comments, setComments] = useState(() => {
     try { return JSON.parse(localStorage.getItem("weekly-comments") || "[]"); }
     catch { return []; }
   });
   const [active, setActive] = useState(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [sheetStatus, setSheetStatus] = useState({}); // { [commentId]: 'sending'|'ok'|'fail' }
 
   useEffect(() => {
     localStorage.setItem("weekly-comments", JSON.stringify(comments));
   }, [comments]);
 
   const add = (anchor, label, text) => {
-    setComments(cs => [...cs, {
-      id: Date.now() + Math.random(),
+    const comment = {
+      id: `C-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`,
       anchor, label, text, ts: new Date().toISOString(),
-    }]);
+    };
+    setComments(cs => [...cs, comment]);
+
+    const url = window.SHEETS_CONFIG?.appsScriptUrl;
+    if (url) {
+      setSheetStatus(s => ({ ...s, [comment.id]: 'sending' }));
+      fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          id: comment.id,
+          ts: comment.ts,
+          weekLabel: week?.label || '',
+          sourceSheet: week?.sheetName || week?.label || '',
+          anchor, label, text,
+          author: 'Евгений',
+          status: 'open',
+        }),
+      })
+        .then(() => setSheetStatus(s => ({ ...s, [comment.id]: 'ok' })))
+        .catch(() => setSheetStatus(s => ({ ...s, [comment.id]: 'fail' })));
+    }
   };
   const remove = (id) => setComments(cs => cs.filter(c => c.id !== id));
   const resolve = (id) => setComments(cs => cs.map(c => c.id === id ? { ...c, resolved: !c.resolved } : c));
@@ -39,7 +62,7 @@ function CommentsProvider({ children }) {
   }, [comments]);
 
   return (
-    <CommentsCtx.Provider value={{ comments, add, remove, resolve, byAnchor, active, setActive, panelOpen, setPanelOpen }}>
+    <CommentsCtx.Provider value={{ comments, add, remove, resolve, byAnchor, active, setActive, panelOpen, setPanelOpen, sheetStatus }}>
       {children}
     </CommentsCtx.Provider>
   );
@@ -81,9 +104,10 @@ function Annotatable({ anchor, label, children, inline = false }) {
 
 // ===== popover =====
 function CommentPopover() {
-  const { active, setActive, add, byAnchor, remove, resolve } = useComments();
+  const { active, setActive, add, byAnchor, remove, resolve, sheetStatus } = useComments();
   const [text, setText] = useState("");
   const taRef = useRef(null);
+  const hasSheets = Boolean(window.SHEETS_CONFIG?.appsScriptUrl);
 
   useEffect(() => {
     if (active) { setText(""); setTimeout(() => taRef.current?.focus(), 50); }
@@ -137,9 +161,12 @@ function CommentPopover() {
             onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit(); }}
             placeholder="Задать вопрос или оставить комментарий…" rows={3}/>
           <div className="anno-form-foot">
-            <span style={{ fontSize: 11, color: "var(--ink-3)" }}>сохраняется в браузере</span>
+            {hasSheets
+              ? <span className="sheets-tag" title="Комментарий запишется в Google Sheets «Weekly Feedback»">→ Sheets</span>
+              : <span style={{ fontSize: 11, color: "var(--ink-3)" }}>локально</span>
+            }
             <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "var(--mono)", marginLeft: "auto" }}>⌘+Enter</span>
-            <button className="btn btn-primary" onClick={submit}>сохранить</button>
+            <button className="btn btn-primary" onClick={submit}>отправить</button>
           </div>
         </div>
       </div>
@@ -196,11 +223,12 @@ function CommentsPanel() {
   );
 }
 
-// ===== local comments banner (GitHub Pages version, no Sheets) =====
+// ===== comments banner =====
 function CommentsBanner() {
   const { comments, setPanelOpen } = useComments();
   const open = comments.filter(c => !c.resolved).length;
   const resolved = comments.filter(c => c.resolved).length;
+  const hasSheets = Boolean(window.SHEETS_CONFIG?.appsScriptUrl);
 
   const copyAll = () => {
     const list = comments.filter(c => !c.resolved);
@@ -219,13 +247,18 @@ function CommentsBanner() {
       <div className="sb-text">
         <div className="sb-title">
           Комментарии и вопросы — кликни по любому блоку
-          <span className="sb-live" style={{ background: "color-mix(in oklab, var(--accent) 12%, transparent)", color: "var(--accent)" }}>
-            <span className="sb-live-dot" style={{ background: "var(--accent)", animation: "none" }}/>
-            локально
-          </span>
+          {hasSheets
+            ? <span className="sb-live"><span className="sb-live-dot"/>Sheets</span>
+            : <span className="sb-live" style={{ background: "color-mix(in oklab, var(--accent) 12%, transparent)", color: "var(--accent)" }}>
+                <span className="sb-live-dot" style={{ background: "var(--accent)", animation: "none" }}/>локально
+              </span>
+          }
         </div>
         <div className="sb-sub">
-          Кликни по любому блоку — TL;DR, теме, вехе, открытому вопросу — оставь комментарий или задай вопрос Володе. Комментарии сохраняются в браузере. Скопируй все открытые одной кнопкой и перешли в Telegram или на почту.
+          {hasSheets
+            ? "Кликни по любому блоку — теме, вехе, вопросу — и оставь комментарий или вопрос Володе. Каждый комментарий сразу записывается в лист «Weekly Feedback» в Google Sheets."
+            : "Кликни по любому блоку — теме, вехе, вопросу — и оставь комментарий или вопрос Володе. Комментарии сохраняются в этом браузере. Скопируй все открытые одной кнопкой."
+          }
         </div>
         <div className="sb-stats-row">
           <span className="sb-stat"><b>{open}</b> открыто</span>
@@ -282,8 +315,20 @@ function ReaderView({ topics, week }) {
     }
   };
 
+  const scrollToTopic = (id) => {
+    const el = document.getElementById(`topic-${id}`);
+    if (!el) return;
+    const reader = document.querySelector('.reader');
+    const usesWindow = !reader || reader.scrollHeight <= reader.clientHeight + 1;
+    if (usesWindow) {
+      window.scrollTo({ top: el.getBoundingClientRect().top + (window.scrollY || 0) - 24, behavior: 'smooth' });
+    } else {
+      reader.scrollTo({ top: el.getBoundingClientRect().top + reader.scrollTop - 24, behavior: 'smooth' });
+    }
+  };
+
   return (
-    <CommentsProvider>
+    <CommentsProvider week={week}>
       <main className="reader" data-focus={focus || ""}>
         <div className="reader-inner">
           <CommentsHeader/>
@@ -306,7 +351,28 @@ function ReaderView({ topics, week }) {
             <div className="eyebrow" style={{ marginBottom: 14 }}>TL;DR · что было важного</div>
             <Annotatable anchor="tldr" label="TL;DR недели" inline>
               <p className="serif-h" style={{ fontSize: 24, fontStyle: "italic", lineHeight: 1.35, margin: 0, color: "var(--ink)", maxWidth: 820, textWrap: "pretty" }}>
-                Двинулись по <u style={{ textDecorationColor: "var(--accent-good)", textDecorationThickness: 2, textUnderlineOffset: 4 }}>Альфе и МСП-Банку</u>, по <u style={{ textDecorationColor: "var(--accent-good)", textDecorationThickness: 2, textUnderlineOffset: 4 }}>Квадриге</u> и по <u style={{ textDecorationColor: "var(--accent-good)", textDecorationThickness: 2, textUnderlineOffset: 4 }}>дебиторке Экспоненты</u>. По коксованию пересобрали фокус на доступные рынки. Биотех — стоит на месте, мяч на тебе. {syncs.length} тем требуют sync — детали ниже.
+                {real.length > 0 ? (
+                  <>
+                    {"Реальный результат — "}
+                    {real.slice(0, 5).map((t, i, arr) => (
+                      <React.Fragment key={t.id}>
+                        {i > 0 && (i === arr.length - 1 ? " и " : ", ")}
+                        <button onClick={() => scrollToTopic(t.id)} style={{
+                          background: "none", border: "none", padding: 0, cursor: "pointer",
+                          font: "inherit", color: "inherit",
+                          textDecoration: "underline",
+                          textDecorationColor: "var(--accent-good)",
+                          textDecorationThickness: 2,
+                          textUnderlineOffset: 4,
+                        }}>{t.title}</button>
+                      </React.Fragment>
+                    ))}
+                    {real.length > 5 ? ` и ещё ${real.length - 5}` : ""}.
+                    {syncs.length > 0 && <>{" "}{syncs.length} {syncs.length === 1 ? "тема" : "темы"} на sync — детали ниже.</>}
+                  </>
+                ) : (
+                  `Новых результатов за эту неделю нет.${syncs.length > 0 ? ` ${syncs.length} тем на sync — детали ниже.` : ""}`
+                )}
               </p>
             </Annotatable>
           </section>
@@ -488,7 +554,7 @@ function TopicArticle({ t }) {
     return dt < today;
   };
   return (
-    <article className="topic-art">
+    <article className="topic-art" id={`topic-${t.id}`}>
       <div className="ta-meta">
         <span className="id-mono">{t.id}</span>
         <MovementTag m={t.movement}/>
