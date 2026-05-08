@@ -9,6 +9,6 @@ venv/
 *.local.json
 src/*.egg-info/
 exports/
-
+viewer/
 *.csv
 !tests/fixtures/*.csv
