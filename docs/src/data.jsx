@@ -2,10 +2,12 @@
 // 1. Share the spreadsheet: "Доступ → Все, у кого есть ссылка → Читатель"
 // 2. Create an API key in Google Cloud → APIs & Services → Credentials
 //    (restrict to Sheets API + your GitHub Pages domain)
-// 3. Paste below and push.
+// 3. Optional: deploy Apps Script web app to receive comments → see apps_script.js
+// 4. Paste below and push.
 const SHEETS_CONFIG = {
   spreadsheetId: "14vjMSr2YaGRcD9Ud1zrDvULhEIE6o5kmZkKfdxarSFs",
-  apiKey: "",  // ← вставь сюда свой API-ключ
+  apiKey: "",          // ← API-ключ для чтения данных из Sheets
+  appsScriptUrl: "",   // ← URL задеплоенного Apps Script (для записи комментариев)
   sheetPattern: /^Weekly MVP \d{4}-\d{2}-\d{2}$/,
 };
 

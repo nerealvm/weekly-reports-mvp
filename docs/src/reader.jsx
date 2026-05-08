@@ -122,13 +122,14 @@ function CommentPopover() {
     setText("");
   };
 
-  const top = Math.min(active.rect.bottom + 8, window.innerHeight - 320);
-  const left = Math.min(Math.max(active.rect.left, 16), window.innerWidth - 360);
+  const isMobile = window.innerWidth < 760;
+  const top = isMobile ? undefined : Math.min(active.rect.bottom + 8, window.innerHeight - 340);
+  const left = isMobile ? undefined : Math.min(Math.max(active.rect.left, 16), window.innerWidth - 376);
 
   return (
     <>
       <div className="anno-backdrop" onClick={() => setActive(null)}/>
-      <div className="anno-pop" style={{ top, left }} onClick={e => e.stopPropagation()}>
+      <div className={`anno-pop${isMobile ? " anno-pop-mobile" : ""}`} style={isMobile ? {} : { top, left }} onClick={e => e.stopPropagation()}>
         <div className="anno-pop-head">
           <div>
             <div className="eyebrow">комментарий к</div>
@@ -436,7 +437,7 @@ function ReaderView({ topics, week }) {
                 <div className="rule"/>
                 <span className="section-hint">клик по вопросу → комментарий</span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
+              <div className="questions-grid">
                 {questions.map(t => (
                   <div key={t.id} style={{ padding: "16px 0", borderTop: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 8 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -460,15 +461,10 @@ function ReaderView({ topics, week }) {
           <div style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden", background: "var(--paper)" }}>
             {upcoming.map((m, i) => (
               <Annotatable key={i} anchor={`ms-${m.id}-${i}`} label={`Веха ${m.date} · ${m.topic}`}>
-                <div style={{
-                  display: "grid", gridTemplateColumns: "80px 1fr 200px 120px",
-                  alignItems: "center", gap: 16,
-                  padding: "14px 18px", borderTop: i ? "1px solid var(--line-2)" : "0",
-                  fontSize: 13
-                }}>
-                  <span className="id-mono" style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--ink-2)" }}>{m.date}</span>
-                  <span style={{ color: "var(--ink)" }}>{m.text}</span>
-                  <span style={{ color: "var(--ink-3)", fontSize: 12 }}>{m.topic}</span>
+                <div className="ms-table-row" style={{ borderTop: i ? "1px solid var(--line-2)" : "0" }}>
+                  <span className="id-mono msr-date">{m.date}</span>
+                  <span className="msr-text">{m.text}</span>
+                  <span className="msr-topic">{m.topic}</span>
                   <BallChip ball={m.ball}/>
                 </div>
               </Annotatable>
@@ -501,17 +497,10 @@ function ReaderView({ topics, week }) {
           <div style={{ border: "1px solid var(--line)", borderRadius: 12, background: "var(--paper)" }}>
             {stale.map((t,i) => (
               <Annotatable key={t.id} anchor={`stale-${t.id}`} label={t.title}>
-                <div style={{
-                  display: "grid", gridTemplateColumns: "60px 1fr 180px 120px",
-                  alignItems: "center", gap: 16,
-                  padding: "12px 18px", borderTop: i ? "1px solid var(--line-2)" : "0",
-                  fontSize: 13
-                }}>
+                <div className="stale-table-row" style={{ borderTop: i ? "1px solid var(--line-2)" : "0" }}>
                   <span className="id-mono">{t.id}</span>
-                  <span style={{ color: "var(--ink)" }}>{t.title}</span>
-                  <span style={{ color: "var(--ink-3)", fontSize: 12, fontFamily: "var(--mono)" }}>
-                    {t.milestones[0]?.date || "—"}
-                  </span>
+                  <span className="str-title">{t.title}</span>
+                  <span className="str-date">{t.milestones[0]?.date || "—"}</span>
                   <BallChip ball={t.ball} name={t.ballName}/>
                 </div>
               </Annotatable>

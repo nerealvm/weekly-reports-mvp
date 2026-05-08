@@ -933,3 +933,131 @@ body[data-theme="ink"] .sheets-banner {
   .sheets-banner .sb-stats-row { gap: 10px; }
   .sheets-banner .sb-link-btn { margin-left: 0; }
 }
+
+/* ─── upcoming milestones table ─── */
+.ms-table-row {
+  display: grid; grid-template-columns: 80px 1fr 200px 120px;
+  align-items: center; gap: 16px;
+  padding: 14px 18px; font-size: 13px;
+}
+.msr-date { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.msr-text { color: var(--ink); }
+.msr-topic { color: var(--ink-3); font-size: 12px; }
+
+/* ─── stale topics table ─── */
+.stale-table-row {
+  display: grid; grid-template-columns: 60px 1fr 180px 120px;
+  align-items: center; gap: 16px;
+  padding: 12px 18px; font-size: 13px;
+}
+.str-title { color: var(--ink); }
+.str-date { color: var(--ink-3); font-size: 12px; font-family: var(--mono); }
+
+/* ─── questions grid ─── */
+.questions-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0 32px;
+}
+.questions-grid > div {
+  padding: 16px 0; border-top: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+/* ════════════════════════════════════════
+   MOBILE (≤ 760px)
+   ════════════════════════════════════════ */
+@media (max-width: 760px) {
+
+  /* topbar */
+  .topbar { padding: 8px 12px; gap: 8px; flex-wrap: nowrap; }
+  .topbar-actions > div { gap: 2px; }
+  .topbar-actions > div button { width: 24px; height: 24px; font-size: 10px; border-radius: 4px; }
+
+  /* reader inner */
+  .reader-inner { padding: 20px 16px 100px; }
+
+  /* masthead */
+  .r-masthead { flex-direction: column; align-items: flex-start; gap: 8px; padding-bottom: 12px; margin-bottom: 20px; }
+  .r-mast-l h1 { font-size: 30px; }
+  .r-mast-l h1 .week-no { font-size: 13px; vertical-align: 16px; }
+  .r-mast-r { text-align: left; }
+
+  /* TL;DR */
+  .reader-inner section .serif-h { font-size: 18px !important; }
+
+  /* stats strip: 2 cols → 1 col on tiny screens */
+  .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  .stat .num { font-size: 30px; }
+  .stat { padding: 14px 16px; }
+
+  /* milestones table → date + text only */
+  .ms-table-row { grid-template-columns: 70px 1fr; padding: 12px 14px; gap: 10px; }
+  .msr-topic { display: none; }
+  .ms-table-row > .ball { display: none; }
+
+  /* stale table → id + title only */
+  .stale-table-row { grid-template-columns: 48px 1fr; padding: 10px 14px; gap: 10px; }
+  .str-date { display: none; }
+  .stale-table-row > .ball { display: none; }
+
+  /* questions → single column */
+  .questions-grid { grid-template-columns: 1fr; }
+  .section-title .section-hint { display: none; }
+
+  /* topic article → single column, show milestones */
+  .topic-art { grid-template-columns: 1fr; gap: 14px; padding: 18px 0; }
+  .ms-timeline-wrap { display: block !important; border-top: 1px solid var(--line-2); padding-top: 12px; margin-top: 4px; }
+  .ms-timeline-wrap .eyebrow { margin-bottom: 6px; }
+
+  /* sync items */
+  .sync-item { grid-template-columns: 28px 1fr; gap: 10px; }
+
+  /* section titles */
+  .section-title { margin: 36px 0 14px; gap: 10px; }
+
+  /* archive note */
+  .archive-note { flex-direction: column; gap: 4px; }
+
+  /* ── comments: popover as bottom sheet ── */
+  .anno-pop {
+    position: fixed !important;
+    left: 0 !important; right: 0 !important;
+    bottom: 0 !important; top: auto !important;
+    width: 100% !important;
+    border-radius: 16px 16px 0 0;
+    max-height: 88vh;
+  }
+  .anno-pop-mobile { /* extra selector for JS-applied class — same rules */ }
+
+  /* ── comments panel as bottom sheet ── */
+  .anno-panel {
+    left: 0; right: 0; width: 100%;
+    top: auto; bottom: 0;
+    border-radius: 16px 16px 0 0;
+    max-height: 80vh;
+  }
+
+  /* ── FAB: move to bottom so it doesn't fight topbar ── */
+  .anno-fab {
+    top: auto;
+    bottom: 20px;
+    right: 16px;
+  }
+
+  /* ── sheets banner ── */
+  .sheets-banner { padding: 12px; gap: 10px; margin-bottom: 24px; }
+  .sheets-banner .sb-link { display: none; }
+}
+
+@media (max-width: 480px) {
+  /* very narrow: single-column stats */
+  .stats-strip { grid-template-columns: 1fr; }
+  .stat { border-right: 0 !important; border-bottom: 1px solid var(--line); }
+  .stat:last-child { border-bottom: 0; }
+  .stat:nth-child(1), .stat:nth-child(2) { border-bottom: 1px solid var(--line); }
+
+  /* hide theme switcher to save topbar space */
+  .topbar-actions { display: none; }
+
+  /* role switch compact */
+  .role-btn { padding: 5px 10px; font-size: 11px; }
+}
