@@ -337,10 +337,45 @@ button:hover { border-color: #9aa4b2; }
   color: var(--muted);
   text-align: center;
 }
-.toast {
+.back-top {
   position: fixed;
   right: 18px;
   bottom: 18px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 13px;
+  border-color: #b8c7dd;
+  background: #fff;
+  box-shadow: 0 10px 26px rgba(31, 35, 40, .16);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity .16s ease, transform .16s ease, border-color .16s ease;
+}
+.back-top.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.back-top span {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 99px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1;
+}
+.back-top b { font-size: 13px; }
+.toast {
+  position: fixed;
+  right: 18px;
+  bottom: 72px;
   background: #1f2328;
   color: #fff;
   border-radius: 6px;
@@ -476,14 +511,23 @@ button.saving { cursor: wait; opacity: .78; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 980px) {
-  .shell { width: min(100% - 20px, 760px); padding-top: 12px; }
+  .shell { width: min(100% - 20px, 760px); padding: 12px 0 96px; }
   .topbar { display: block; }
   .actions { justify-content: flex-start; margin-top: 12px; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .controls { display: block; position: static; }
   .search-wrap { width: 100%; margin-top: 10px; }
   .content { grid-template-columns: 1fr; }
-  .summary-panel { position: static; max-height: 360px; }
+  .summary-panel { position: static; max-height: none; overflow: visible; }
+  .attention-list { overflow: visible; max-height: none; padding-right: 0; }
   .topic-head, .details { grid-template-columns: 1fr; }
   .badges { justify-content: flex-start; }
+}
+@media (max-width: 520px) {
+  h1 { font-size: 24px; overflow-wrap: anywhere; }
+  .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .actions button { width: 100%; padding: 0 8px; }
+  .metric { min-height: 92px; }
+  .back-top { right: 12px; bottom: 12px; min-height: 38px; padding: 0 11px; }
+  .toast { left: 12px; right: 12px; bottom: 66px; }
 }

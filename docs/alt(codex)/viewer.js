@@ -545,6 +545,16 @@ function renderFilterState() {
   filterButtons().forEach(item => item.classList.toggle("active", item.dataset.filter === filter));
 }
 
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function updateBackTopButton() {
+  const button = document.getElementById("backTopBtn");
+  if (!button) return;
+  button.classList.toggle("visible", window.scrollY > 360);
+}
+
 function escapeHtml(value) {
   return String(value || "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[ch]));
 }
@@ -557,11 +567,14 @@ document.getElementById("commentSaveBtn").onclick = () => saveComment().catch(er
 document.getElementById("commentCancelBtn").onclick = closeComment;
 document.getElementById("commentCloseBtn").onclick = closeComment;
 document.getElementById("voiceCommentBtn").onclick = toggleVoiceComment;
+document.getElementById("backTopBtn").onclick = scrollToTop;
 document.querySelector("[data-close-comment]").onclick = closeComment;
 document.getElementById("search").addEventListener("input", event => {
   query = event.target.value.trim().toLowerCase();
   renderItems();
 });
+window.addEventListener("scroll", updateBackTopButton, { passive: true });
+window.addEventListener("resize", updateBackTopButton);
 document.addEventListener("click", event => {
   const jumpTarget = event.target.closest("[data-jump-topic]");
   if (jumpTarget) {
@@ -579,4 +592,5 @@ for (const button of filterButtons()) {
   button.onclick = () => setFilter(button.dataset.filter);
 }
 updateVoiceAvailability();
+updateBackTopButton();
 loadReport().catch(error => setToast(error.message));
