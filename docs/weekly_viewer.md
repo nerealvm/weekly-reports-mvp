@@ -22,13 +22,13 @@ http://127.0.0.1:8770
 make pages-export
 ```
 
-Команда обновляет:
+Команда обновляет fallback snapshot:
 
 ```text
 docs/report.json
 ```
 
-Pages-интерфейс живет в `docs/index.html` и `docs/src/`. Без API key он читает статический `report.json`. Комментарии в нем сохраняются локально в браузере Евгения и копируются через интерфейс.
+Pages-интерфейс живет в `docs/index.html` и `docs/src/`. Основной режим без API key — публичный CSV Google Sheets через `gviz/tq`, если таблица доступна всем по ссылке. `report.json` остается fallback на случай, если публичный CSV недоступен.
 
 Запись комментариев в Google Sheets доступна только в локальном `make viewer`, потому что GitHub Pages не выполняет Python backend.
 

@@ -61,13 +61,13 @@ http://127.0.0.1:8765
 http://127.0.0.1:8770
 ```
 
-`make pages-export` обновляет статический snapshot интерфейса Евгения для GitHub Pages:
+`make pages-export` обновляет статический fallback snapshot интерфейса Евгения для GitHub Pages:
 
 ```text
 docs/report.json
 ```
 
-GitHub Pages интерфейс живет в `docs/index.html` и `docs/src/`. Без API key он читает `docs/report.json`. Комментарии там сохраняются локально в браузере и копируются через интерфейс; запись в Google Sheets работает только в локальном `make viewer`.
+GitHub Pages интерфейс живет в `docs/index.html` и `docs/src/`. Если Google Sheet доступна всем по ссылке, интерфейс читает текущую вкладку напрямую через публичный CSV endpoint `gviz/tq` без API key. Если публичный CSV недоступен, используется `docs/report.json`.
 
 Обычный запуск продолжает локальную session. Для принудительного перечитывания Google Sheet используй:
 

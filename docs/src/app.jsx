@@ -11,7 +11,7 @@ function App() {
   const [selectedId, setSelectedId] = React.useState(window.FALLBACK_TOPICS[0]?.id || null);
 
   // Sheets state
-  const [sheetsStatus, setSheetsStatus] = React.useState("idle"); // idle | loading | ok | static | error
+  const [sheetsStatus, setSheetsStatus] = React.useState("idle"); // idle | loading | ok | public_csv | static | error
   const [sheetsError, setSheetsError] = React.useState("");
   const [availableWeeks, setAvailableWeeks] = React.useState([]);
   const [activeSheetName, setActiveSheetName] = React.useState("");
@@ -23,8 +23,35 @@ function App() {
 
   const cfg = window.SHEETS_CONFIG;
   const hasApiKey = Boolean(cfg?.apiKey);
+  const hasPublicCsv = Boolean(cfg?.publicCsvGid || cfg?.publicCsvSheetName);
 
   React.useEffect(() => {
+    if (!hasApiKey && hasPublicCsv) {
+      setSheetsStatus("loading");
+      window.fetchPublicCsvWeekData()
+        .then(({ TOPICS, WEEK }) => {
+          setTopics(TOPICS);
+          setWeek(WEEK);
+          setSelectedId(TOPICS[0]?.id || null);
+          setActiveSheetName(cfg.publicCsvSheetName || WEEK.sheetName || "");
+          setSheetsStatus("public_csv");
+        })
+        .catch(csvErr => {
+          setSheetsError(csvErr.message);
+          return window.fetchStaticReport()
+            .then(({ TOPICS, WEEK }) => {
+              setTopics(TOPICS);
+              setWeek(WEEK);
+              setSelectedId(TOPICS[0]?.id || null);
+              setSheetsStatus("static");
+            })
+            .catch(staticErr => {
+              setSheetsError(`${csvErr.message}; ${staticErr.message}`);
+              setSheetsStatus("error");
+            });
+        });
+      return;
+    }
     if (!hasApiKey) {
       setSheetsStatus("loading");
       window.fetchStaticReport()
@@ -153,8 +180,13 @@ function App() {
             ● Sheets
           </span>
         )}
+        {sheetsStatus === "public_csv" && (
+          <span style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--accent-good)", letterSpacing: "0.06em" }} title="Данные читаются напрямую из публичного CSV Google Sheets без API key">
+            ● public csv
+          </span>
+        )}
         {sheetsStatus === "static" && (
-          <span style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--ink-4)", letterSpacing: "0.04em" }} title="API-ключ не настроен — показаны статические данные">
+          <span style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--ink-4)", letterSpacing: "0.04em" }} title={sheetsError || "Публичный CSV/API не настроены — показаны статические данные"}>
             static
           </span>
         )}

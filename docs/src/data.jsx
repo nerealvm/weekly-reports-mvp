@@ -1,12 +1,14 @@
 // ─── Google Sheets configuration ────────────────────────────────────────────
 // 1. Share the spreadsheet: "Доступ → Все, у кого есть ссылка → Читатель"
-// 2. Create an API key in Google Cloud → APIs & Services → Credentials
-//    (restrict to Sheets API + your GitHub Pages domain)
-// 3. Optional: deploy Apps Script web app to receive comments → see apps_script.js
-// 4. Paste below and push.
+// 2. If the spreadsheet is public by link, GitHub Pages reads the current
+//    weekly tab through the public gviz CSV endpoint, no API key required.
+// 3. Optional: paste an API key to enable automatic week-tab discovery.
+// 4. Optional: deploy Apps Script web app to receive comments → see apps_script.js
 const SHEETS_CONFIG = {
   spreadsheetId: "14vjMSr2YaGRcD9Ud1zrDvULhEIE6o5kmZkKfdxarSFs",
-  apiKey: "",          // ← API-ключ для чтения данных из Sheets
+  apiKey: "",          // ← optional: API-ключ для discovery недельных вкладок
+  publicCsvGid: "20260508",
+  publicCsvSheetName: "Weekly MVP 2026-05-08",
   appsScriptUrl: "https://script.google.com/macros/s/AKfycbxqO_xtAfwH3jmstuS-uEl8696HMEeEp_KmTMSegmy5sw4hUgoMo2ra3Yje0ZisuSS6/exec",   // ← URL задеплоенного Apps Script (для записи комментариев)
   sheetPattern: /^Weekly MVP \d{4}-\d{2}-\d{2}$/,
 };
@@ -66,6 +68,29 @@ async function fetchWeekData(sheetName) {
   return parseSheetValues(values, sheetName);
 }
 
+async function fetchPublicCsvWeekData(sheetName = SHEETS_CONFIG.publicCsvSheetName) {
+  const url = new URL(`https://docs.google.com/spreadsheets/d/${SHEETS_CONFIG.spreadsheetId}/gviz/tq`);
+  url.searchParams.set("tqx", "out:csv");
+  if (SHEETS_CONFIG.publicCsvGid) {
+    url.searchParams.set("gid", SHEETS_CONFIG.publicCsvGid);
+  } else if (sheetName) {
+    url.searchParams.set("sheet", sheetName);
+  } else {
+    throw new Error("Не настроен publicCsvGid или publicCsvSheetName");
+  }
+  url.searchParams.set("_", String(Date.now()));
+
+  const res = await fetch(url.toString(), { cache: "no-store", credentials: "omit" });
+  if (!res.ok) throw new Error(`Public CSV error ${res.status}`);
+  const text = await res.text();
+  if (!text.trim() || text.trimStart().startsWith("<")) {
+    throw new Error("Public CSV endpoint вернул не CSV. Проверь доступ «Все, у кого есть ссылка → Читатель».");
+  }
+  const values = parseCsv(text);
+  if (values.length < 2) throw new Error(`Пустая публичная CSV-вкладка: ${sheetName}`);
+  return parseSheetValues(values, sheetName || SHEETS_CONFIG.publicCsvSheetName || "Weekly");
+}
+
 async function fetchStaticReport() {
   const res = await fetch("report.json", { cache: "no-store" });
   if (!res.ok) throw new Error(`Static report error ${res.status}`);
@@ -82,7 +107,7 @@ function parseSheetValues(values, sheetName) {
     if (i >= 0) idx[key] = i;
   }
 
-  const get = (row, key) => (row[idx[key]] || "").trim();
+  const get = (row, key) => String(row[idx[key]] ?? "").trim();
 
   const TOPICS = values.slice(1)
     .filter(row => {
@@ -116,11 +141,60 @@ function parseSheetValues(values, sheetName) {
   return { TOPICS, WEEK };
 }
 
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += ch;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ",") {
+      row.push(field);
+      field = "";
+    } else if (ch === "\n") {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+    } else if (ch === "\r") {
+      if (text[i + 1] !== "\n") {
+        row.push(field);
+        rows.push(row);
+        row = [];
+        field = "";
+      }
+    } else {
+      field += ch;
+    }
+  }
+
+  row.push(field);
+  rows.push(row);
+  return rows.filter(items => items.some(item => String(item || "").trim()));
+}
+
 function parseBall(raw) {
-  const v = (raw || "").trim().toLowerCase();
+  const v = String(raw || "").trim().toLowerCase();
   if (!v || v === "me" || v === "я" || v.includes("волод")) return { ball: "me" };
   if (v === "evgeny" || v.includes("евгени")) return { ball: "evgeny" };
-  return { ball: "external", name: raw.trim() };
+  return { ball: "external", name: String(raw || "").trim() };
 }
 
 function parseStaticReport(report) {
@@ -151,7 +225,7 @@ function parseStaticReport(report) {
 
 function weekMetaFromSheetName(sheetName) {
   const m = sheetName.match(/(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return { label: sheetName, range: sheetName, rangeShort: "", to: "Евгению", from: "Володя", prevWeek: "" };
+  if (!m) return { label: sheetName, range: sheetName, rangeShort: "", to: "Евгению", from: "Володя", prevWeek: "", sheetName };
   const [, year, month, day] = m;
   const end = new Date(+year, +month-1, +day);
   const start = new Date(end); start.setDate(start.getDate() - 6);
@@ -169,6 +243,7 @@ function weekMetaFromSheetName(sheetName) {
     to: "Евгению",
     from: "Володя",
     prevWeek: `W${weekNum-1} · ${prevRange}`,
+    sheetName,
   };
 }
 
@@ -234,6 +309,7 @@ const FALLBACK_WEEK = {
 window.SHEETS_CONFIG = SHEETS_CONFIG;
 window.fetchSheetList = fetchSheetList;
 window.fetchWeekData = fetchWeekData;
+window.fetchPublicCsvWeekData = fetchPublicCsvWeekData;
 window.fetchStaticReport = fetchStaticReport;
 window.FALLBACK_TOPICS = FALLBACK_TOPICS;
 window.FALLBACK_WEEK = FALLBACK_WEEK;
