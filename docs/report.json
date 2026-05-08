@@ -2,11 +2,11 @@
   "week_label": "08.05.2026",
   "source_sheet": "Weekly MVP 2026-05-08",
   "metrics": {
-    "total_active": 24,
+    "total_active": 25,
     "real_result": 8,
     "no_movement": 15,
-    "unclear": 1,
-    "needs_sync": 8,
+    "unclear": 2,
+    "needs_sync": 9,
     "open_questions": 5
   },
   "items": [
@@ -60,7 +60,7 @@
     },
     {
       "topic_id": "T-018",
-      "topic_title": "проект по сбору новостей и выявлению трендов на базе агентов ии. суммаризации и постинг в телеграмм всего этого (личная подборка think tank и новостей по интересующей теме с выводом в телеграмм)",
+      "topic_title": "личная подборка think tank и новостей по интересующей теме",
       "section": "Локальные задачи",
       "focus": "no",
       "result": "Расширил базу источников и начал практическую сборку AI-контура по новостям и трендам; для дальнейшей сборки нужен синк по целевому виду результата и архитектуре.",
@@ -119,6 +119,22 @@
       "movement_type": "real_result",
       "needs_sync": "yes",
       "sync_reason": "Нужно обсудить с Игорем подход к переработке финмодели под требования программы и дождаться ответа Дом.РФ.",
+      "source_links": "",
+      "priority": 0
+    },
+    {
+      "topic_id": "T-034",
+      "topic_title": "Карта отрасли (graphCRM)",
+      "section": "Проекты",
+      "focus": "no",
+      "result": "Без нового движения за неделю.",
+      "milestones": "",
+      "milestone_date": "",
+      "ball_side": "На паузе",
+      "open_question": "",
+      "movement_type": "unclear",
+      "needs_sync": "yes",
+      "sync_reason": "",
       "source_links": "",
       "priority": 0
     },
