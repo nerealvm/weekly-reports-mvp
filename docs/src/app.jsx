@@ -176,32 +176,32 @@ function App() {
 
         {/* Sheets status indicator */}
         {sheetsStatus === "ok" && (
-          <span style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--accent-good)", letterSpacing: "0.06em" }}>
+          <span className="topbar-status" style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--accent-good)", letterSpacing: "0.06em" }}>
             ● Sheets
           </span>
         )}
         {sheetsStatus === "public_csv" && (
-          <span style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--accent-good)", letterSpacing: "0.06em" }} title="Данные читаются напрямую из публичного CSV Google Sheets без API key">
-            ● public csv
+          <span className="topbar-status" style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--accent-good)", letterSpacing: "0.06em" }} title="Данные читаются напрямую из публичного CSV Google Sheets без API key">
+            ● csv
           </span>
         )}
         {sheetsStatus === "static" && (
-          <span style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--ink-4)", letterSpacing: "0.04em" }} title={sheetsError || "Публичный CSV/API не настроены — показаны статические данные"}>
+          <span className="topbar-status" style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--ink-4)", letterSpacing: "0.04em" }} title="статические данные">
             static
           </span>
         )}
         {sheetsStatus === "error" && (
-          <span style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--accent-warn)", letterSpacing: "0.04em" }} title={sheetsError}>
-            ⚠ {sheetsError.slice(0, 40)}
+          <span className="topbar-status" style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--accent-warn)", letterSpacing: "0.04em" }} title={sheetsError}>
+            ⚠
           </span>
         )}
 
         <div className="role-switch" role="tablist" aria-label="Роль">
           <button className="role-btn" aria-pressed={role==="editor"} onClick={()=>setRole("editor")}>
-            <span className="dot"/>Володя<span className="role-label-long"> · редактор</span>
+            <span className="dot"/><span className="role-name">Вол</span><span className="role-label-long">одя</span>
           </button>
           <button className="role-btn" aria-pressed={role==="reader"} onClick={()=>setRole("reader")}>
-            <span className="dot"/>Евгений<span className="role-label-long"> · читатель</span>
+            <span className="dot"/><span className="role-name">Евг</span><span className="role-label-long">ений</span>
           </button>
         </div>
 
