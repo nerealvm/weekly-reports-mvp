@@ -64,6 +64,13 @@ async function fetchWeekData(sheetName) {
   return parseSheetValues(values, sheetName);
 }
 
+async function fetchStaticReport() {
+  const res = await fetch("report.json", { cache: "no-store" });
+  if (!res.ok) throw new Error(`Static report error ${res.status}`);
+  const report = await res.json();
+  return parseStaticReport(report);
+}
+
 // ─── Parser ──────────────────────────────────────────────────────────────────
 function parseSheetValues(values, sheetName) {
   const headers = values[0].map(h => (h || "").trim());
@@ -109,9 +116,35 @@ function parseSheetValues(values, sheetName) {
 
 function parseBall(raw) {
   const v = (raw || "").trim().toLowerCase();
-  if (!v || v === "me" || v === "я") return { ball: "me" };
+  if (!v || v === "me" || v === "я" || v.includes("волод")) return { ball: "me" };
   if (v === "evgeny" || v.includes("евгени")) return { ball: "evgeny" };
   return { ball: "external", name: raw.trim() };
+}
+
+function parseStaticReport(report) {
+  const TOPICS = (report.items || []).map(item => {
+    const ball = parseBall(item.ball_side);
+    return {
+      id: item.topic_id,
+      title: item.topic_title,
+      facts: item.current_week_facts || item.result || "",
+      result: item.result || "Без нового движения за неделю.",
+      milestones: item.milestones
+        ? [{ date: item.milestone_date || "", text: item.milestones }]
+        : [],
+      ball: ball.ball,
+      ballName: ball.name,
+      question: item.open_question || "",
+      movement: item.movement_type || "unclear",
+      sync: item.needs_sync === "yes" ? "yes" : "no",
+      syncReason: item.sync_reason || "",
+      link: item.source_links || "",
+    };
+  });
+  return {
+    TOPICS,
+    WEEK: weekMetaFromSheetName(report.source_sheet || report.week_label || "Weekly"),
+  };
 }
 
 function weekMetaFromSheetName(sheetName) {
@@ -199,5 +232,6 @@ const FALLBACK_WEEK = {
 window.SHEETS_CONFIG = SHEETS_CONFIG;
 window.fetchSheetList = fetchSheetList;
 window.fetchWeekData = fetchWeekData;
+window.fetchStaticReport = fetchStaticReport;
 window.FALLBACK_TOPICS = FALLBACK_TOPICS;
 window.FALLBACK_WEEK = FALLBACK_WEEK;

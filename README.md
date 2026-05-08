@@ -64,11 +64,10 @@ http://127.0.0.1:8770
 `make pages-export` обновляет статический snapshot интерфейса Евгения для GitHub Pages:
 
 ```text
-docs/index.html
 docs/report.json
 ```
 
-GitHub Pages версия не запускает Python backend. Комментарии там сохраняются локально в браузере и копируются через кнопку `Комментарии`; запись в Google Sheets работает только в локальном `make viewer`.
+GitHub Pages интерфейс живет в `docs/index.html` и `docs/src/`. Без API key он читает `docs/report.json`. Комментарии там сохраняются локально в браузере и копируются через интерфейс; запись в Google Sheets работает только в локальном `make viewer`.
 
 Обычный запуск продолжает локальную session. Для принудительного перечитывания Google Sheet используй:
 

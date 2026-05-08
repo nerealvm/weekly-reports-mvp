@@ -25,13 +25,10 @@ make pages-export
 Команда обновляет:
 
 ```text
-docs/index.html
-docs/viewer.css
-docs/viewer.js
 docs/report.json
 ```
 
-Pages-версия читает статический `report.json`. Комментарии в ней сохраняются локально в браузере Евгения и копируются кнопкой `Комментарии`.
+Pages-интерфейс живет в `docs/index.html` и `docs/src/`. Без API key он читает статический `report.json`. Комментарии в нем сохраняются локально в браузере Евгения и копируются через интерфейс.
 
 Запись комментариев в Google Sheets доступна только в локальном `make viewer`, потому что GitHub Pages не выполняет Python backend.
 

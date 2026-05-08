@@ -11,7 +11,7 @@ function App() {
   const [selectedId, setSelectedId] = React.useState(window.FALLBACK_TOPICS[0]?.id || null);
 
   // Sheets state
-  const [sheetsStatus, setSheetsStatus] = React.useState("idle"); // idle | loading | ok | error | no-key
+  const [sheetsStatus, setSheetsStatus] = React.useState("idle"); // idle | loading | ok | static | error
   const [sheetsError, setSheetsError] = React.useState("");
   const [availableWeeks, setAvailableWeeks] = React.useState([]);
   const [activeSheetName, setActiveSheetName] = React.useState("");
@@ -25,7 +25,21 @@ function App() {
   const hasApiKey = Boolean(cfg?.apiKey);
 
   React.useEffect(() => {
-    if (!hasApiKey) { setSheetsStatus("no-key"); return; }
+    if (!hasApiKey) {
+      setSheetsStatus("loading");
+      window.fetchStaticReport()
+        .then(({ TOPICS, WEEK }) => {
+          setTopics(TOPICS);
+          setWeek(WEEK);
+          setSelectedId(TOPICS[0]?.id || null);
+          setSheetsStatus("static");
+        })
+        .catch(err => {
+          setSheetsError(err.message);
+          setSheetsStatus("error");
+        });
+      return;
+    }
     setSheetsStatus("loading");
     window.fetchSheetList()
       .then(sheets => {
@@ -139,7 +153,7 @@ function App() {
             ● Sheets
           </span>
         )}
-        {sheetsStatus === "no-key" && (
+        {sheetsStatus === "static" && (
           <span style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--ink-4)", letterSpacing: "0.04em" }} title="API-ключ не настроен — показаны статические данные">
             static
           </span>
