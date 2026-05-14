@@ -108,6 +108,42 @@ function App() {
     ? "загрузка…"
     : `${week.label} · ${week.range}`;
 
+  const [saveStatus, setSaveStatus] = React.useState("idle"); // idle | saving | done | error
+
+  const handleSaveReport = React.useCallback(async () => {
+    setSaveStatus("saving");
+    try {
+      const report = topicsToReportJson(topics, week);
+      const json = JSON.stringify(report, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      if (window.showSaveFilePicker) {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: "report.json",
+            types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+        } catch (e) {
+          if (e.name === "AbortError") { setSaveStatus("idle"); return; }
+          throw e;
+        }
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "report.json"; a.click();
+        URL.revokeObjectURL(url);
+      }
+      setSaveStatus("done");
+      setTimeout(() => setSaveStatus("idle"), 2200);
+    } catch (err) {
+      console.error("saveReportJson:", err);
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus("idle"), 2200);
+    }
+  }, [topics, week]);
+
   return (
     <div className="shell">
       <header className="topbar">
@@ -206,6 +242,19 @@ function App() {
         </div>
 
         <div className="topbar-actions">
+          {role === "editor" && sheetsStatus !== "loading" && (
+            <button
+              className="save-report-btn"
+              onClick={handleSaveReport}
+              disabled={saveStatus === "saving"}
+              data-status={saveStatus}
+              title="Сохранить текущие данные как report.json (статический снапшот)"
+            >
+              {saveStatus === "done"  ? "✓ Сохранено" :
+               saveStatus === "error" ? "⚠ Ошибка"   :
+               saveStatus === "saving"? "Сохраняю…"  : "↓ report.json"}
+            </button>
+          )}
           <div style={{ display: "flex", gap: 4 }}>
             {[["warm","☀"], ["cool","❄"], ["ink","●"]].map(([v, l]) => (
               <button key={v} onClick={() => setTheme(v)}
@@ -231,6 +280,45 @@ function App() {
       )}
     </div>
   );
+}
+
+// Converts current topics+week into report.json format (read by parseStaticReport)
+function topicsToReportJson(topics, week) {
+  const ballSide = (t) => {
+    if (t.ball === "me") return "Володя";
+    if (t.ball === "evgeny") return "Евгений";
+    return t.ballName || "external";
+  };
+  const items = topics.map((t, i) => ({
+    topic_id: t.id,
+    topic_title: t.title,
+    section: "",
+    focus: "no",
+    current_week_facts: t.facts || "",
+    result: t.result || "",
+    milestones: (t.milestones || []).map(m => [m.date, m.text].filter(Boolean).join(" ")).join("; "),
+    milestone_date: t.milestones?.[0]?.date || "",
+    ball_side: ballSide(t),
+    open_question: t.question || "",
+    movement_type: t.movement || "unclear",
+    needs_sync: t.sync || "no",
+    sync_reason: t.syncReason || "",
+    source_links: t.link || "",
+    priority: i,
+  }));
+  return {
+    week_label: week.rangeShort || week.label || "",
+    source_sheet: week.sheetName || `Weekly MVP ${new Date().toISOString().slice(0, 10)}`,
+    metrics: {
+      total_active: topics.length,
+      real_result: topics.filter(t => t.movement === "real_result").length,
+      no_movement: topics.filter(t => t.movement === "no_movement").length,
+      unclear: topics.filter(t => t.movement === "unclear").length,
+      needs_sync: topics.filter(t => t.sync === "yes").length,
+      open_questions: topics.filter(t => t.question).length,
+    },
+    items,
+  };
 }
 
 // Week picker pill label — separate name so it doesn't overwrite data.jsx's weekMetaFromSheetName

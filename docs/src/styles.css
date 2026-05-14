@@ -81,7 +81,25 @@ body {
 }
 .role-btn[aria-pressed="true"] .dot { background: var(--accent-warn); }
 
-.topbar-actions { display: flex; gap: 8px; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+.save-report-btn {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 4px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.save-report-btn:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.save-report-btn:disabled { opacity: 0.55; cursor: default; }
+.save-report-btn[data-status="done"] { border-color: var(--accent-good); color: var(--accent-good); }
+.save-report-btn[data-status="error"] { border-color: var(--accent-warn); color: var(--accent-warn); }
 .icon-btn {
   border: 1px solid var(--line); background: var(--paper);
   width: 32px; height: 32px; border-radius: 8px;
