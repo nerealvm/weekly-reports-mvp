@@ -83,6 +83,33 @@ body {
 
 .topbar-actions { display: flex; align-items: center; gap: 8px; }
 
+.topbar-source {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.topbar-status {
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--accent-good);
+  letter-spacing: 0.06em;
+}
+.reload-btn {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--ink-3);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.reload-btn:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
 .save-report-btn {
   border: 1px solid var(--line);
   background: var(--paper);
@@ -1036,7 +1063,7 @@ body { overflow-x: hidden; }
     overflow: hidden;         /* clip any overflow within bar */
   }
   /* hide sheets status on mobile — no room */
-  .topbar-status { display: none !important; }
+  .topbar-source .topbar-status { display: none; }
   /* brand smaller */
   .brand { font-size: 17px; flex-shrink: 0; }
   /* role-switch: compact */

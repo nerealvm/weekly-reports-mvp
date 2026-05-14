@@ -25,9 +25,9 @@ function App() {
   const hasApiKey = Boolean(cfg?.apiKey);
   const hasPublicCsv = Boolean(cfg?.publicCsvGid || cfg?.publicCsvSheetName);
 
-  React.useEffect(() => {
+  const reloadData = React.useCallback(() => {
+    setSheetsStatus("loading");
     if (!hasApiKey && hasPublicCsv) {
-      setSheetsStatus("loading");
       window.fetchPublicCsvWeekData()
         .then(({ TOPICS, WEEK }) => {
           setTopics(TOPICS);
@@ -53,7 +53,6 @@ function App() {
       return;
     }
     if (!hasApiKey) {
-      setSheetsStatus("loading");
       window.fetchStaticReport()
         .then(({ TOPICS, WEEK }) => {
           setTopics(TOPICS);
@@ -67,7 +66,6 @@ function App() {
         });
       return;
     }
-    setSheetsStatus("loading");
     window.fetchSheetList()
       .then(sheets => {
         setAvailableWeeks(sheets);
@@ -86,6 +84,8 @@ function App() {
         setSheetsStatus("error");
       });
   }, []);
+
+  React.useEffect(() => { reloadData(); }, []);
 
   const switchWeek = (sheetName) => {
     setWeekPickerOpen(false);
@@ -210,27 +210,29 @@ function App() {
           )}
         </div>
 
-        {/* Sheets status indicator */}
-        {sheetsStatus === "ok" && (
-          <span className="topbar-status" style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--accent-good)", letterSpacing: "0.06em" }}>
-            ● Sheets
-          </span>
-        )}
-        {sheetsStatus === "public_csv" && (
-          <span className="topbar-status" style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--accent-good)", letterSpacing: "0.06em" }} title="Данные читаются напрямую из публичного CSV Google Sheets без API key">
-            ● csv
-          </span>
-        )}
-        {sheetsStatus === "static" && (
-          <span className="topbar-status" style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--ink-4)", letterSpacing: "0.04em" }} title="статические данные">
-            static
-          </span>
-        )}
-        {sheetsStatus === "error" && (
-          <span className="topbar-status" style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--accent-warn)", letterSpacing: "0.04em" }} title={sheetsError}>
-            ⚠
-          </span>
-        )}
+        {/* Sheets status + refresh */}
+        <span className="topbar-source">
+          {sheetsStatus === "ok" && (
+            <span className="topbar-status" title="Данные из Google Sheets (API)">● Sheets</span>
+          )}
+          {sheetsStatus === "public_csv" && (
+            <span className="topbar-status" style={{ color: "var(--accent-good)" }} title="Данные из публичного CSV Google Sheets">● csv</span>
+          )}
+          {sheetsStatus === "static" && (
+            <span className="topbar-status" style={{ color: "var(--ink-4)" }} title="Статический снапшот (report.json)">static</span>
+          )}
+          {sheetsStatus === "error" && (
+            <span className="topbar-status" style={{ color: "var(--accent-warn)" }} title={sheetsError}>⚠</span>
+          )}
+          {sheetsStatus !== "loading" && (
+            <button className="reload-btn" onClick={reloadData} title="Обновить данные из Google Sheets">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M13.5 8A5.5 5.5 0 1 1 10 3.07"/>
+                <path d="M10 1v3.5H13.5"/>
+              </svg>
+            </button>
+          )}
+        </span>
 
         <div className="role-switch" role="tablist" aria-label="Роль">
           <button className="role-btn" aria-pressed={role==="editor"} onClick={()=>setRole("editor")}>
