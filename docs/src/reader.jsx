@@ -102,9 +102,51 @@ function Annotatable({ anchor, label, children, inline = false }) {
   );
 }
 
+// ===== voice input button =====
+function VoiceButton({ onTranscript }) {
+  const [listening, setListening] = useState(false);
+  const recRef = useRef(null);
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+
+  const toggle = () => {
+    if (listening) {
+      recRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const rec = new SR();
+    rec.lang = "ru-RU";
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.onresult = (e) => {
+      const t = e.results[0][0].transcript;
+      onTranscript(t);
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    rec.start();
+    recRef.current = rec;
+    setListening(true);
+  };
+
+  return (
+    <button type="button" onClick={toggle} className={`voice-btn${listening ? " listening" : ""}`}
+      title={listening ? "Остановить" : "Голосовой ввод"}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill={listening ? "currentColor" : "none"}
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="22"/>
+      </svg>
+      <span>{listening ? "слушаю…" : "голос"}</span>
+    </button>
+  );
+}
+
 // ===== popover =====
 function CommentPopover() {
-  const { active, setActive, add, byAnchor, remove, resolve, sheetStatus } = useComments();
+  const { active, setActive, add, byAnchor, remove, resolve } = useComments();
   const [text, setText] = useState("");
   const taRef = useRef(null);
   const hasSheets = Boolean(window.SHEETS_CONFIG?.appsScriptUrl);
@@ -129,7 +171,7 @@ function CommentPopover() {
   return (
     <>
       <div className="anno-backdrop" onClick={() => setActive(null)}/>
-      <div className={`anno-pop${isMobile ? " anno-pop-mobile" : ""}`} style={isMobile ? {} : { top, left }} onClick={e => e.stopPropagation()}>
+      <div className="anno-pop" style={isMobile ? {} : { top, left }} onClick={e => e.stopPropagation()}>
         <div className="anno-pop-head">
           <div>
             <div className="eyebrow">комментарий к</div>
@@ -160,13 +202,15 @@ function CommentPopover() {
         <div className="anno-form">
           <textarea ref={taRef} value={text} onChange={e => setText(e.target.value)}
             onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit(); }}
-            placeholder="Задать вопрос или оставить комментарий…" rows={3}/>
+            placeholder="Задать вопрос или оставить комментарий…" rows={3}
+            className="anno-textarea"/>
           <div className="anno-form-foot">
             {hasSheets
-              ? <span className="sheets-tag" title="Комментарий запишется в Google Sheets «Weekly Feedback»">→ Sheets</span>
+              ? <span className="sheets-tag" title="Запишется в Google Sheets">→ Sheets</span>
               : <span style={{ fontSize: 11, color: "var(--ink-3)" }}>локально</span>
             }
-            <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "var(--mono)", marginLeft: "auto" }}>⌘+Enter</span>
+            <VoiceButton onTranscript={t => setText(prev => prev ? prev + " " + t : t)}/>
+            <span className="anno-kbd">⌘+Enter</span>
             <button className="btn btn-primary" onClick={submit}>отправить</button>
           </div>
         </div>

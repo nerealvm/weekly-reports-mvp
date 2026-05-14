@@ -628,19 +628,45 @@ button { font-family: inherit; }
 .anno-actions button:hover { background: var(--paper); color: var(--ink); }
 
 .anno-form { padding: 12px 16px; }
-.anno-form textarea {
+.anno-form .anno-textarea {
   width: 100%; border: 1px solid var(--line); background: var(--paper);
   border-radius: 8px; padding: 10px 12px;
   font-family: inherit; font-size: 13px; line-height: 1.45;
   color: var(--ink); resize: vertical;
+  /* iOS: font-size must be ≥16px to prevent auto-zoom on focus */
+  font-size: max(16px, 13px);
 }
-.anno-form textarea:focus {
+.anno-form .anno-textarea:focus {
   outline: 2px solid color-mix(in oklab, var(--accent) 30%, transparent);
   outline-offset: -1px; border-color: transparent;
 }
 .anno-form-foot {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-top: 8px;
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 8px; flex-wrap: wrap;
+}
+.anno-kbd {
+  font-size: 10px; color: var(--ink-4); font-family: var(--mono);
+  margin-left: auto;
+}
+/* voice button */
+.voice-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--sans); font-size: 11px; font-weight: 500;
+  color: var(--ink-3);
+  background: transparent; border: 1px solid var(--line);
+  border-radius: 7px; padding: 4px 9px;
+  cursor: pointer; white-space: nowrap;
+  transition: color .12s, background .12s, border-color .12s;
+}
+.voice-btn:hover { color: var(--ink); border-color: var(--ink-3); background: var(--paper); }
+.voice-btn.listening {
+  color: var(--accent); border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  animation: voice-pulse 1.2s ease-in-out infinite;
+}
+@keyframes voice-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
 }
 
 /* fab + panel */
@@ -1049,6 +1075,10 @@ body { overflow-x: hidden; }
   .sheets-banner { padding: 12px 14px; gap: 10px; margin-bottom: 20px; }
   .sheets-banner .sb-link { display: none; }
   .sheets-banner .sb-stats-row { gap: 8px; }
+
+  /* ── comment form: prevent iOS auto-zoom, hide keyboard hint ── */
+  .anno-form .anno-textarea { font-size: 16px; }
+  .anno-kbd { display: none; }
 
   /* ── comment popover → bottom sheet ── */
   .anno-pop {

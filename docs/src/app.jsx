@@ -147,7 +147,7 @@ function App() {
                   <div className="eyebrow">выбрать неделю</div>
                 </div>
                 {availableWeeks.map(({ sheetName, date }) => {
-                  const meta = weekMetaFromSheetName(sheetName);
+                  const meta = weekPickerMeta(sheetName);
                   const isActive = sheetName === activeSheetName;
                   return (
                     <button key={sheetName}
@@ -198,10 +198,10 @@ function App() {
 
         <div className="role-switch" role="tablist" aria-label="Роль">
           <button className="role-btn" aria-pressed={role==="editor"} onClick={()=>setRole("editor")}>
-            <span className="dot"/><span className="role-name">Вол</span><span className="role-label-long">одя</span>
+            <span className="dot"/><span className="role-name">Вол<span className="role-label-long">одя</span></span>
           </button>
           <button className="role-btn" aria-pressed={role==="reader"} onClick={()=>setRole("reader")}>
-            <span className="dot"/><span className="role-name">Евг</span><span className="role-label-long">ений</span>
+            <span className="dot"/><span className="role-name">Евг<span className="role-label-long">ений</span></span>
           </button>
         </div>
 
@@ -233,8 +233,8 @@ function App() {
   );
 }
 
-// Helper re-exported so the week picker can use it too
-function weekMetaFromSheetName(sheetName) {
+// Week picker pill label — separate name so it doesn't overwrite data.jsx's weekMetaFromSheetName
+function weekPickerMeta(sheetName) {
   const m = sheetName.match(/(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return { label: sheetName, rangeShort: "" };
   const [, year, month, day] = m;
