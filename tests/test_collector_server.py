@@ -126,7 +126,13 @@ class CollectorServerTest(unittest.TestCase):
         session = {
             "metadata": {"week_start": "2026-05-01", "week_end": "2026-05-07"},
             "rows": [
-                {"topic_id": "T-001", "topic_title": "Активная", "lifecycle": "active", "focus": "no"},
+                {
+                    "topic_id": "T-001",
+                    "topic_title": "Активная",
+                    "lifecycle": "active",
+                    "focus": "no",
+                    "open_question_to_evgeny": "Старый вопрос?",
+                },
                 {"topic_id": "T-002", "topic_title": "Пауза", "lifecycle": "paused", "focus": "no"},
             ],
         }
@@ -135,6 +141,8 @@ class CollectorServerTest(unittest.TestCase):
 
         self.assertEqual(context["week_start"], "2026-05-01")
         self.assertEqual([item["topic_id"] for item in context["topics"]], ["T-001"])
+        self.assertEqual(context["topics"][0]["old_open_question_to_evgeny"], "Старый вопрос?")
+        self.assertIn("оставлять ли этот вопрос актуальным", " ".join(context["instructions"]))
         self.assertIn("items", context["output_schema"])
 
 
