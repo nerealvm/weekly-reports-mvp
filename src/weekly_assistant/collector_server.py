@@ -588,8 +588,10 @@ def _build_chatgpt_context(session: dict) -> dict:
             "Подтвержденный старый вопрос верни в open_question_to_evgeny; снятый или неподтвержденный старый вопрос верни пустой строкой.",
             "Вопрос к Евгению заполняй только если пользователь явно подтвердил, что это вопрос к Евгению.",
             "Вех может быть несколько; верни milestones[] в порядке ближайшая первая.",
-            "После всех тем верни только JSON по output_schema.",
+            "После всех тем создай файл weekly_import_<week_end>.json с JSON по output_schema; не печатай большой JSON в чат.",
+            "Если создание файла недоступно, верни один компактный JSON-блок без markdown.",
         ],
+        "output_file": f"weekly_import_{session.get('metadata', {}).get('week_end', '')}.json",
         "output_schema": {
             "items": [
                 {
@@ -892,7 +894,8 @@ INDEX_HTML = """<!doctype html>
       <div class="import-box">
         <label for="chatgptImport">ChatGPT JSON</label>
         <button id="chatgptContextBtn">Copy ChatGPT context</button>
-        <textarea id="chatgptImport" rows="7" placeholder="Вставь сюда финальный JSON из ChatGPT Project. Поля: items[], topic_id, final_result, milestones[], ball_side, open_question_to_evgeny."></textarea>
+        <input id="chatgptImportFile" type="file" accept=".json,application/json">
+        <textarea id="chatgptImport" rows="7" placeholder="Выбери JSON-файл из ChatGPT Project или вставь финальный JSON вручную. Поля: items[], topic_id, final_result, milestones[], ball_side, open_question_to_evgeny."></textarea>
         <button id="chatgptImportBtn">Import ChatGPT JSON</button>
         <div id="chatgptImportResult" class="muted"></div>
       </div>
@@ -1274,6 +1277,14 @@ async function importChatgpt() {
   message(`ChatGPT import: ${data.imported_count}`);
 }
 
+async function loadChatgptImportFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  document.getElementById("chatgptImport").value = text.trim();
+  document.getElementById("chatgptImportResult").textContent = `Файл загружен: ${file.name}`;
+}
+
 async function copyChatgptContext() {
   await saveCurrentIfDirty();
   const data = await api("/api/chatgpt-context", {});
@@ -1334,6 +1345,7 @@ document.getElementById("nextBtn").onclick = () => nextEmpty();
 document.getElementById("bulkBtn").onclick = () => bulkSuggest().catch(error => message(error.message, true));
 document.getElementById("chatgptContextBtn").onclick = () => copyChatgptContext().catch(error => message(error.message, true));
 document.getElementById("chatgptImportBtn").onclick = () => importChatgpt().catch(error => message(error.message, true));
+document.getElementById("chatgptImportFile").onchange = event => loadChatgptImportFile(event).catch(error => message(error.message, true));
 document.getElementById("exportBtn").onclick = () => exportSession().catch(error => message(error.message, true));
 document.getElementById("writeBtn").onclick = () => writeBack().catch(error => message(error.message, true));
 for (const button of document.querySelectorAll("[data-status]")) {
