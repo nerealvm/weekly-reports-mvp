@@ -1564,15 +1564,19 @@ INDEX_HTML = """<!doctype html>
         <div id="progressMeta" class="progress-meta">0 ждут · 0 без данных</div>
       </section>
       <nav class="top-actions" aria-label="Действия сессии">
-        <button id="chatgptContextBtn" class="btn btn-ghost" title="Скопировать JSON-контекст для ChatGPT">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v7"/><path d="M5 7l3 3 3-3"/><path d="M3 13h10"/></svg>
+        <button id="chatgptContextBtn" class="btn btn-ghost" title="Скопировать JSON-контекст для ChatGPT в буфер">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v7A1.5 1.5 0 0 0 3.5 12H5"/></svg>
           <span>Контекст для GPT</span>
         </button>
-        <button id="openImportBtn" class="btn btn-primary" title="Открыть импорт результата из ChatGPT">
+        <button id="exportFileBtn" class="btn btn-ghost" title="Скачать JSON-контекст файлом">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v7"/><path d="M5 7l3 3 3-3"/><path d="M3 13h10"/></svg>
+          <span>Экспорт в файл</span>
+        </button>
+        <button id="openImportBtn" class="btn btn-primary" title="Импортировать результат интервью из ChatGPT (.json)">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9"/><path d="M9 5l3 3-3 3"/></svg>
           <span>Импорт результата</span>
         </button>
-        <button id="exportBtn" class="btn btn-ghost">Export</button>
+        <input id="importFileInput" type="file" accept=".json,application/json" hidden>
         <div class="final-actions">
           <button id="finalMenuBtn" class="btn btn-warn" aria-expanded="false">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11V3"/><path d="M5 6l3-3 3 3"/><path d="M3 13h10"/></svg>
@@ -1620,25 +1624,6 @@ INDEX_HTML = """<!doctype html>
           <input id="topicSearch" placeholder="Поиск темы...">
         </div>
         <div id="stats" class="stats"></div>
-
-        <details class="utility-panel" id="importPanel">
-          <summary>ChatGPT JSON</summary>
-          <div class="utility-body">
-            <input id="chatgptImportFile" type="file" accept=".json,application/json">
-            <textarea id="chatgptImport" rows="7" placeholder="Выбери JSON-файл из ChatGPT Project или вставь финальный JSON вручную."></textarea>
-            <button id="chatgptImportBtn" class="btn btn-primary full">Import ChatGPT JSON</button>
-            <div id="chatgptImportResult" class="muted"></div>
-          </div>
-        </details>
-
-        <details class="utility-panel">
-          <summary>Сырой dump</summary>
-          <div class="utility-body">
-            <textarea id="bulkText" rows="6" placeholder="Хаотичный апдейт по всем темам. Инструмент разложит по строкам."></textarea>
-            <button id="bulkBtn" class="btn btn-subtle full">Разложить по темам</button>
-            <div id="bulkResult" class="muted"></div>
-          </div>
-        </details>
 
         <nav id="topicList" class="topic-list" aria-label="Темы"></nav>
       </aside>
@@ -2058,7 +2043,7 @@ label { display: block; margin: 0 0 7px; color: #56554f; font-size: 11px; font-w
   #collapseQueueBtn { display: none; }
   .topic-list { max-height: 420px; overflow-y: auto; }
   .editor-scroll, .context-scroll { overflow: visible; max-height: none; }
-  .editor-footer { flex-wrap: wrap; }
+  .editor-footer { position: sticky; bottom: 0; z-index: 5; flex-wrap: wrap; box-shadow: 0 -6px 16px rgba(40, 38, 30, .06); }
   .footer-actions { width: 100%; margin-left: 0; flex-wrap: wrap; }
   .footer-actions .btn { flex: 1 1 150px; }
 }
@@ -2461,46 +2446,22 @@ async function draftCurrent() {
   render();
 }
 
-async function bulkSuggest() {
-  const text = document.getElementById("bulkText").value.trim();
-  if (!text) return;
-  message("Разбираю dump...");
-  const data = await api("/api/bulk-suggest", { text });
-  let applied = 0;
-  for (const item of data.items || []) {
-    const row = session.rows.find(candidate => candidate.topic_id === item.topic_id);
-    if (!row) continue;
-    row.raw_fact = row.raw_fact ? `${row.raw_fact}\\n${item.raw_fact}` : item.raw_fact;
-    row.status = `suggested:${item.confidence}`;
-    row.changed = true;
-    await api("/api/row", { topic_id: row.topic_id, patch: { raw_fact: row.raw_fact, status: row.status, review_status: "draft" } });
-    applied += 1;
-  }
-  document.getElementById("bulkResult").textContent = `Разложено: ${applied}; unmatched: ${(data.unmatched || []).length}`;
-  await loadSession();
-  message("Bulk suggestions applied");
+function contextFileName() {
+  const meta = (session && session.metadata) ? session.metadata : {};
+  const tag = String(meta.week_end || meta.week_start || "context").replace(/[^0-9A-Za-z._-]/g, "");
+  return `weekly_context_${tag}.json`;
 }
 
-async function importChatgpt() {
-  await saveEverythingIfDirty();
-  const text = document.getElementById("chatgptImport").value.trim();
-  if (!text) return;
-  message("Импортирую ChatGPT JSON...");
-  const data = await api("/api/chatgpt-import", { text });
-  document.getElementById("chatgptImportResult").textContent = `Импортировано: ${data.imported_count}; unmatched: ${(data.unmatched || []).length}`;
-  if (data.imported && data.imported.length) selectedId = data.imported[0].topic_id;
-  await loadSession();
-  dirty = false;
-  message(`ChatGPT import: ${data.imported_count}`);
-}
-
-async function loadChatgptImportFile(event) {
-  const file = event.target.files && event.target.files[0];
-  if (!file) return;
-  const text = await file.text();
-  document.getElementById("chatgptImport").value = text.trim();
-  document.getElementById("chatgptImportResult").textContent = `Файл загружен: ${file.name}`;
-  document.getElementById("importPanel").open = true;
+function downloadJson(text, filename) {
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function copyChatgptContext() {
@@ -2509,13 +2470,38 @@ async function copyChatgptContext() {
   const text = JSON.stringify(data, null, 2);
   try {
     await navigator.clipboard.writeText(text);
-    document.getElementById("chatgptImportResult").textContent = "Контекст скопирован. Вставь его в ChatGPT Project.";
+    message("Контекст для GPT скопирован в буфер.");
   } catch (error) {
-    document.getElementById("chatgptImport").value = text;
-    document.getElementById("chatgptImportResult").textContent = "Clipboard недоступен. Контекст положил в поле импорта.";
-    document.getElementById("importPanel").open = true;
+    downloadJson(text, contextFileName());
+    message("Буфер недоступен — контекст скачан файлом.");
   }
-  message("ChatGPT context ready");
+}
+
+async function exportContextFile() {
+  await saveEverythingIfDirty();
+  const data = await api("/api/chatgpt-context", {});
+  downloadJson(JSON.stringify(data, null, 2), contextFileName());
+  message(`Контекст сохранён: ${contextFileName()}`);
+}
+
+function triggerImportFile() {
+  const input = document.getElementById("importFileInput");
+  input.value = "";
+  input.click();
+}
+
+async function importFromFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  await saveEverythingIfDirty();
+  message(`Импортирую ${file.name}...`);
+  const text = (await file.text()).trim();
+  const data = await api("/api/chatgpt-import", { text });
+  if (data.imported && data.imported.length) selectedId = data.imported[0].topic_id;
+  await loadSession();
+  dirty = false;
+  const unmatched = (data.unmatched || []).length;
+  message(`Импортировано: ${data.imported_count}${unmatched ? `; не сматчилось: ${unmatched}` : ""}`);
 }
 
 function nextEmpty() {
@@ -2601,13 +2587,6 @@ function formatIsoDate(date) {
   return date.toISOString().slice(0, 10);
 }
 
-async function exportSession() {
-  await saveEverythingIfDirty();
-  const data = await api("/api/export", {});
-  message(`Exported: ${data.candidate_csv}`);
-  alert(`Exported\\n${data.summary_text}`);
-}
-
 async function writeBack() {
   await saveEverythingIfDirty();
   closeFinalMenu();
@@ -2648,11 +2627,6 @@ function toggleFinalMenu() {
 function closeFinalMenu() {
   document.getElementById("finalMenu").hidden = true;
   document.getElementById("finalMenuBtn").setAttribute("aria-expanded", "false");
-}
-
-function openImportPanel() {
-  document.getElementById("importPanel").open = true;
-  document.getElementById("chatgptImport").focus();
 }
 
 function markWeeklyDirty(sourceId) {
@@ -2712,13 +2686,11 @@ document.getElementById("nextTopicBtn").onclick = () => moveTopic(1).catch(error
 document.getElementById("nextTopicFooterBtn").onclick = () => moveTopic(1).catch(error => message(error.message, true));
 document.getElementById("prevTopicBtn").onclick = () => moveTopic(-1).catch(error => message(error.message, true));
 document.getElementById("reviewBtn").onclick = () => toggleReviewed().catch(error => message(error.message, true));
-document.getElementById("bulkBtn").onclick = () => bulkSuggest().catch(error => message(error.message, true));
 document.getElementById("chatgptContextBtn").onclick = () => copyChatgptContext().catch(error => message(error.message, true));
-document.getElementById("openImportBtn").onclick = () => openImportPanel();
-document.getElementById("emptyImportBtn").onclick = () => openImportPanel();
-document.getElementById("chatgptImportBtn").onclick = () => importChatgpt().catch(error => message(error.message, true));
-document.getElementById("chatgptImportFile").onchange = event => loadChatgptImportFile(event).catch(error => message(error.message, true));
-document.getElementById("exportBtn").onclick = () => exportSession().catch(error => message(error.message, true));
+document.getElementById("exportFileBtn").onclick = () => exportContextFile().catch(error => message(error.message, true));
+document.getElementById("openImportBtn").onclick = () => triggerImportFile();
+document.getElementById("emptyImportBtn").onclick = () => triggerImportFile();
+document.getElementById("importFileInput").onchange = event => importFromFile(event).catch(error => message(error.message, true));
 document.getElementById("finalMenuBtn").onclick = event => { event.stopPropagation(); toggleFinalMenu(); };
 document.getElementById("finalMenu").onclick = event => event.stopPropagation();
 document.getElementById("writeBtn").onclick = () => writeBack().catch(error => message(error.message, true));
