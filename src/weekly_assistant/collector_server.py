@@ -1589,9 +1589,13 @@ INDEX_HTML = """<!doctype html>
     </header>
 
     <section class="main-layout">
-      <aside class="panel queue-panel">
+      <aside class="panel queue-panel" id="queuePanel">
+        <button id="expandQueueBtn" class="queue-expand" title="Развернуть очередь" aria-label="Развернуть очередь">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>
+        </button>
         <div class="queue-head">
           <div class="section-title">Очередь тем</div>
+          <div class="queue-head-actions">
           <details class="mini-form" id="newProjectPanel">
             <summary><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 4v8M4 8h8"/></svg>тема</summary>
             <div class="mini-form-body">
@@ -1606,6 +1610,10 @@ INDEX_HTML = """<!doctype html>
               <div id="newProjectResult" class="muted"></div>
             </div>
           </details>
+          <button id="collapseQueueBtn" class="icon-only" title="Свернуть очередь" aria-label="Свернуть очередь">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 4l-4 4 4 4"/></svg>
+          </button>
+          </div>
         </div>
         <div class="search-wrap">
           <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4"/><path d="M13 13l-3-3"/></svg>
@@ -1848,6 +1856,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .45; }
 svg { width: 15px; height: 15px; display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+button svg { pointer-events: none; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #dcdcd6; border-radius: 8px; border: 3px solid transparent; background-clip: padding-box; }
 ::placeholder { color: var(--muted-3); }
@@ -1906,6 +1915,24 @@ svg { width: 15px; height: 15px; display: block; fill: none; stroke: currentColo
 .editor-panel { flex: 1; min-width: 0; overflow: hidden; }
 .context-panel { width: 336px; flex: none; overflow: hidden; }
 .queue-head { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 14px 10px; border-bottom: 1px solid var(--line-2); }
+.queue-head-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.queue-expand { width: 100%; min-height: 46px; display: none; align-items: center; justify-content: center; border: 0; border-bottom: 1px solid var(--line-2); background: transparent; color: var(--muted-2); }
+.queue-expand:hover { background: #f4f4f1; color: #56554f; }
+.queue-panel.collapsed { width: 56px; }
+.queue-panel.collapsed .queue-head,
+.queue-panel.collapsed .search-wrap,
+.queue-panel.collapsed .stats,
+.queue-panel.collapsed .utility-panel { display: none; }
+.queue-panel.collapsed .queue-expand { display: flex; }
+.queue-panel.collapsed .topic-list { align-items: center; gap: 5px; padding: 6px; }
+.topic-rail-item { width: 42px; height: 42px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: inherit; transition: background .12s, border-color .12s; }
+.topic-rail-item:hover { background: #f4f4f1; }
+.topic-rail-item.active { border-color: var(--accent-border); background: var(--accent-soft); }
+.topic-rail-item .topic-dot { width: 8px; height: 8px; }
+.topic-rail-item.done .topic-dot { border-color: var(--accent); background: var(--accent); }
+.topic-rail-item.reviewed .topic-dot { border-color: var(--ok); background: var(--ok); }
+.topic-rail-item code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; font-weight: 650; color: #a3a29b; }
+.topic-rail-item.active code { color: var(--accent); }
 .section-title, .context-title { color: var(--muted-2); font-size: 11px; font-weight: 680; letter-spacing: .6px; text-transform: uppercase; }
 .mini-form { position: relative; }
 .mini-form summary, .utility-panel summary, .collapse-box summary { cursor: pointer; list-style: none; }
@@ -1993,11 +2020,14 @@ label { display: block; margin: 0 0 7px; color: #56554f; font-size: 11px; font-w
 .collapse-body label { margin-top: 12px; }
 .collapse-body label:first-child { margin-top: 0; }
 .service-box { background: #fcfcfb; }
-.editor-footer { min-height: 58px; flex-shrink: 0; display: flex; align-items: center; gap: 9px; padding: 11px 26px; border-top: 1px solid var(--line-2); background: #fcfcfb; }
+.editor-footer { min-height: 58px; flex-shrink: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; row-gap: 8px; padding: 11px 16px; border-top: 1px solid var(--line-2); background: #fcfcfb; }
+.editor-footer .btn { padding: 0 11px; }
+.editor-footer .save-state { flex: 1 1 auto; min-width: 0; }
+.footer-actions .btn-ghost { padding: 0 9px; }
 .save-state { display: inline-flex; align-items: center; gap: 6px; color: var(--ok); font-size: 11.5px; }
 .save-state i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .save-state.dirty { color: #b07a1e; }
-.footer-actions { margin-left: auto; display: flex; align-items: center; gap: 9px; }
+.footer-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; }
 .context-scroll { display: flex; flex-direction: column; gap: 16px; padding: 16px; }
 .context-block pre { margin: 9px 0 0; padding: 12px 13px; border: 1px solid var(--line-2); border-radius: 9px; background: #fafaf8; color: var(--ink-2); font: inherit; font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
 .context-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
@@ -2025,6 +2055,7 @@ label { display: block; margin: 0 0 7px; color: #56554f; font-size: 11px; font-w
   .top-actions { width: 100%; margin-left: 0; overflow-x: auto; padding-bottom: 2px; }
   .main-layout { min-height: auto; flex-direction: column; overflow: visible; padding: 12px; }
   .panel, .queue-panel, .editor-panel, .context-panel { width: 100%; min-height: auto; overflow: visible; }
+  #collapseQueueBtn { display: none; }
   .topic-list { max-height: 420px; overflow-y: auto; }
   .editor-scroll, .context-scroll { overflow: visible; max-height: none; }
   .editor-footer { flex-wrap: wrap; }
@@ -2051,6 +2082,7 @@ let selectedId = null;
 let dirty = false;
 let projectDirty = false;
 let topicQuery = "";
+let queueCollapsed = (() => { try { return localStorage.getItem("wc_queue_collapsed") === "1"; } catch (error) { return false; } })();
 
 const fields = {
   rawFact: "raw_fact",
@@ -2146,6 +2178,7 @@ function render() {
   document.getElementById("period").textContent = `${meta.week_start || ""} - ${meta.week_end || ""}${weekLabel}`;
   document.getElementById("sourceLabel").textContent = `${source} · проверка недели`;
   renderStats();
+  applyQueueCollapsed();
   renderTopics();
   renderSelected();
   renderFinalMenu();
@@ -2185,16 +2218,38 @@ function renderFinalMenu() {
   document.getElementById("writeBtn").textContent = `Записать ${filled} тем в «Активные»`;
 }
 
+function queueIsCollapsed() {
+  return queueCollapsed && window.innerWidth >= 980;
+}
+
+function applyQueueCollapsed() {
+  const panel = document.getElementById("queuePanel");
+  if (panel) panel.classList.toggle("collapsed", queueIsCollapsed());
+}
+
+function setQueueCollapsed(value) {
+  queueCollapsed = value;
+  try { localStorage.setItem("wc_queue_collapsed", value ? "1" : "0"); } catch (error) {}
+  applyQueueCollapsed();
+  renderTopics();
+}
+
 function renderTopics() {
   const list = document.getElementById("topicList");
   list.innerHTML = "";
   const rows = filteredRows();
+  const rail = queueIsCollapsed();
   for (const row of rows) {
     const filled = isFilled(row);
     const reviewed = isReviewed(row);
     const button = document.createElement("button");
-    button.className = ["topic-item", row.topic_id === selectedId ? "active" : "", filled ? "done" : "empty", reviewed ? "reviewed" : "", row.changed ? "changed" : ""].filter(Boolean).join(" ");
-    button.innerHTML = `
+    if (rail) {
+      button.className = ["topic-rail-item", row.topic_id === selectedId ? "active" : "", filled ? "done" : "empty", reviewed ? "reviewed" : ""].filter(Boolean).join(" ");
+      button.title = `${row.topic_id} · ${row.topic_title}`;
+      button.innerHTML = `<span class="topic-dot"></span><code>${escapeHtml(String(row.topic_id).replace(/^T-?/, ""))}</code>`;
+    } else {
+      button.className = ["topic-item", row.topic_id === selectedId ? "active" : "", filled ? "done" : "empty", reviewed ? "reviewed" : "", row.changed ? "changed" : ""].filter(Boolean).join(" ");
+      button.innerHTML = `
       <span class="topic-dot"></span>
       <span class="topic-copy">
         <span class="topic-title">${escapeHtml(row.topic_title)}</span>
@@ -2206,6 +2261,7 @@ function renderTopics() {
         ${row.changed ? '<span class="flag changed" title="изменено"></span>' : ""}
         ${reviewed ? '<span class="flag" title="проверено">✓</span>' : ""}
       </span>`;
+    }
     button.onclick = () => (async () => {
       await saveEverythingIfDirty();
       selectedId = row.topic_id;
@@ -2215,7 +2271,7 @@ function renderTopics() {
     })().catch(error => message(error.message, true));
     list.appendChild(button);
   }
-  if (!rows.length) list.innerHTML = '<div class="muted">Ничего не найдено.</div>';
+  if (!rows.length) list.innerHTML = rail ? "" : '<div class="muted">Ничего не найдено.</div>';
 }
 
 function topicStateLabel(row) {
@@ -2674,6 +2730,13 @@ document.getElementById("nextWeekBtn").onclick = () => startNextWeek().catch(err
 for (const button of document.querySelectorAll("[data-status]")) {
   button.onclick = () => setStatus(button.dataset.status).catch(error => message(error.message, true));
 }
+document.getElementById("collapseQueueBtn").onclick = () => setQueueCollapsed(true);
+document.getElementById("expandQueueBtn").onclick = () => setQueueCollapsed(false);
+let queueResizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(queueResizeTimer);
+  queueResizeTimer = setTimeout(() => { applyQueueCollapsed(); if (session) renderTopics(); }, 120);
+});
 loadSession().catch(error => message(error.message, true));
 """
 
