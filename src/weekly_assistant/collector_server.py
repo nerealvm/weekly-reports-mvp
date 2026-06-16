@@ -1632,13 +1632,19 @@ INDEX_HTML = """<!doctype html>
         <header class="editor-head">
           <div class="topic-line">
             <span id="topicMeta" class="topic-meta"></span>
-            <div class="topic-nav">
-              <button id="prevTopicBtn" class="icon-only" title="Предыдущая тема">
-                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 4l-4 4 4 4"/></svg>
-              </button>
-              <span id="topicPosition" class="topic-position">0 / 0</span>
-              <button id="nextTopicBtn" class="icon-only" title="Следующая тема">
-                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>
+            <div class="topic-line-right">
+              <div class="topic-nav">
+                <button id="prevTopicBtn" class="icon-only" title="Предыдущая тема">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 4l-4 4 4 4"/></svg>
+                </button>
+                <span id="topicPosition" class="topic-position">0 / 0</span>
+                <button id="nextTopicBtn" class="icon-only" title="Следующая тема">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>
+                </button>
+              </div>
+              <button class="btn review-next btn-ok" data-review-next title="Пометить проверенной и перейти к следующей">
+                <span class="rn-label">Проверено и дальше</span>
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9"/><path d="M9 5l3 3-3 3"/></svg>
               </button>
             </div>
           </div>
@@ -1733,14 +1739,10 @@ INDEX_HTML = """<!doctype html>
         </div>
 
         <footer class="editor-footer">
-          <button id="saveBtn" class="btn btn-subtle">Сохранить</button>
           <span id="saveState" class="save-state"><i></i>Сохранено</span>
           <div class="footer-actions">
-            <button id="draftBtn" class="btn btn-ghost">AI draft</button>
-            <button id="reviewBtn" class="btn btn-ok">Отметить проверенной</button>
-            <button id="nextBtn" class="btn btn-ghost">Next empty</button>
-            <button id="nextTopicFooterBtn" class="btn btn-primary">
-              Следующая тема
+            <button class="btn review-next btn-ok" data-review-next title="Пометить проверенной и перейти к следующей">
+              <span class="rn-label">Проверено и дальше</span>
               <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9"/><path d="M9 5l3 3-3 3"/></svg>
             </button>
           </div>
@@ -1967,6 +1969,8 @@ label { display: block; margin: 0 0 7px; color: #56554f; font-size: 11px; font-w
 .topic-meta { min-width: 0; color: var(--muted-2); font-size: 11.5px; }
 .topic-meta code { padding: 2px 7px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 650; letter-spacing: .3px; }
 .topic-nav { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.topic-line-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.review-next { gap: 7px; }
 .icon-only { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: #56554f; }
 .icon-only:hover { background: #f4f4f1; }
 .topic-position { min-width: 42px; text-align: center; color: var(--muted-2); font-size: 11.5px; font-variant-numeric: tabular-nums; }
@@ -2041,6 +2045,7 @@ label { display: block; margin: 0 0 7px; color: #56554f; font-size: 11px; font-w
   .main-layout { min-height: auto; flex-direction: column; overflow: visible; padding: 12px; }
   .panel, .queue-panel, .editor-panel, .context-panel { width: 100%; min-height: auto; overflow: visible; }
   #collapseQueueBtn { display: none; }
+  .topic-line-right .review-next { display: none; }
   .topic-list { max-height: 420px; overflow-y: auto; }
   .editor-scroll, .context-scroll { overflow: visible; max-height: none; }
   .editor-footer { position: sticky; bottom: 0; z-index: 5; flex-wrap: wrap; box-shadow: 0 -6px 16px rgba(40, 38, 30, .06); }
@@ -2291,6 +2296,7 @@ function renderSelected() {
   renderReview(row);
   renderStatusButtons(row);
   renderNavigationButtons(index, rows.length);
+  renderPrimaryAction(row, index, rows.length);
   document.getElementById("emptyState").hidden = hasEvidence(row);
   const hints = document.getElementById("hints");
   hints.innerHTML = (row.hints || []).length ? row.hints.map(hint => `<li>${escapeHtml(hint)}</li>`).join("") : "<li>Нет подсказок.</li>";
@@ -2318,22 +2324,27 @@ function renderMilestoneContext(row) {
 
 function renderReview(row) {
   const badge = document.getElementById("reviewBadge");
-  const reviewBtn = document.getElementById("reviewBtn");
   badge.className = "review-badge";
-  reviewBtn.className = "btn btn-ok";
-  reviewBtn.disabled = !isFilled(row);
   if (!isFilled(row)) {
     badge.textContent = "Нет данных";
-    reviewBtn.textContent = "Отметить проверенной";
   } else if (isReviewed(row)) {
     badge.textContent = "✓ Проверено";
     badge.classList.add("reviewed");
-    reviewBtn.textContent = "✓ Проверено";
-    reviewBtn.classList.add("reviewed");
   } else {
     badge.textContent = "Ждет проверки";
     badge.classList.add("pending");
-    reviewBtn.textContent = "Отметить проверенной";
+  }
+}
+
+function renderPrimaryAction(row, index, length) {
+  const hasNext = index >= 0 && index < length - 1;
+  const willReview = isFilled(row) && !isReviewed(row);
+  const label = willReview ? "Проверено и дальше" : "Следующая тема";
+  for (const btn of document.querySelectorAll("[data-review-next]")) {
+    btn.className = "btn review-next " + (willReview ? "btn-ok" : "btn-primary");
+    const span = btn.querySelector(".rn-label");
+    if (span) span.textContent = label;
+    btn.disabled = !willReview && !hasNext;
   }
 }
 
@@ -2345,7 +2356,6 @@ function renderStatusButtons(row) {
 function renderNavigationButtons(index, length) {
   document.getElementById("prevTopicBtn").disabled = index <= 0;
   document.getElementById("nextTopicBtn").disabled = index < 0 || index >= length - 1;
-  document.getElementById("nextTopicFooterBtn").disabled = index < 0 || index >= length - 1;
 }
 
 function collectPatch() {
@@ -2436,13 +2446,18 @@ async function setStatus(status) {
   render();
 }
 
-async function draftCurrent() {
+async function reviewAndNext() {
   await saveEverythingIfDirty();
-  message("AI draft...");
-  const data = await api("/api/draft", { topic_id: selectedId });
-  replaceRow(data.row);
-  dirty = false;
-  message("Draft ready");
+  const row = selectedRow();
+  if (row && isFilled(row) && !isReviewed(row)) {
+    const data = await api("/api/row", { topic_id: selectedId, patch: { review_status: "reviewed" } });
+    replaceRow(data.row);
+    message("Отмечено проверенной");
+  }
+  const rows = visibleRows();
+  const index = rows.findIndex(candidate => candidate.topic_id === selectedId);
+  const next = rows[index + 1];
+  if (next) { selectedId = next.topic_id; dirty = false; projectDirty = false; }
   render();
 }
 
@@ -2504,18 +2519,6 @@ async function importFromFile(event) {
   message(`Импортировано: ${data.imported_count}${unmatched ? `; не сматчилось: ${unmatched}` : ""}`);
 }
 
-function nextEmpty() {
-  const rows = activeRows();
-  const start = rows.findIndex(row => row.topic_id === selectedId);
-  const ordered = rows.slice(start + 1).concat(rows.slice(0, start + 1));
-  const next = ordered.find(row => !row.final_result && !row.raw_fact) || ordered.find(row => !row.final_result);
-  if (next) {
-    selectedId = next.topic_id;
-    dirty = false;
-    render();
-  }
-}
-
 async function moveTopic(delta) {
   await saveEverythingIfDirty();
   const rows = visibleRows();
@@ -2525,18 +2528,6 @@ async function moveTopic(delta) {
   selectedId = next.topic_id;
   dirty = false;
   projectDirty = false;
-  render();
-}
-
-async function toggleReviewed() {
-  await saveEverythingIfDirty();
-  const row = selectedRow();
-  if (!row || !isFilled(row)) return;
-  const review_status = isReviewed(row) ? "draft" : "reviewed";
-  const data = await api("/api/row", { topic_id: selectedId, patch: { review_status } });
-  replaceRow(data.row);
-  dirty = false;
-  message(review_status === "reviewed" ? "Marked reviewed" : "Marked draft");
   render();
 }
 
@@ -2634,6 +2625,30 @@ function markWeeklyDirty(sourceId) {
   const reviewStatus = document.getElementById("reviewStatus");
   if (sourceId !== "reviewStatus" && reviewStatus && reviewStatus.value !== "draft") reviewStatus.value = "draft";
   updateDirtyState();
+  scheduleAutoSave();
+}
+
+let autoSaveTimer = null;
+function scheduleAutoSave() {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => autoSave().catch(error => message(error.message, true)), 1200);
+}
+
+async function autoSave() {
+  if (!selectedId) return;
+  if (dirty) {
+    const data = await api("/api/row", { topic_id: selectedId, patch: collectPatch() });
+    replaceRow(data.row);
+    dirty = false;
+  }
+  if (projectDirty) {
+    const data = await api("/api/project", { topic_id: selectedId, patch: collectProjectPatch() });
+    replaceRow(data.row);
+    projectDirty = false;
+  }
+  updateDirtyState();
+  renderStats();
+  renderTopics();
 }
 
 function updateDirtyState() {
@@ -2662,6 +2677,7 @@ document.addEventListener("input", event => {
   if (["projectTitle", "projectMode", "projectFocus", "projectDateCreated"].includes(event.target.id)) {
     projectDirty = true;
     updateDirtyState();
+    scheduleAutoSave();
   }
 });
 document.addEventListener("change", event => {
@@ -2669,6 +2685,7 @@ document.addEventListener("change", event => {
   if (["projectTitle", "projectMode", "projectFocus", "projectDateCreated"].includes(event.target.id)) {
     projectDirty = true;
     updateDirtyState();
+    scheduleAutoSave();
   }
 });
 document.addEventListener("click", event => {
@@ -2676,16 +2693,14 @@ document.addEventListener("click", event => {
   const finalActions = document.querySelector(".final-actions");
   if (!menu.hidden && !finalActions.contains(event.target)) closeFinalMenu();
 });
-document.getElementById("saveBtn").onclick = () => saveCurrent().catch(error => message(error.message, true));
 document.getElementById("saveProjectBtn").onclick = () => saveProject().catch(error => message(error.message, true));
 document.getElementById("newProjectBtn").onclick = () => createProject().catch(error => message(error.message, true));
 document.getElementById("archiveProjectBtn").onclick = () => archiveProject().catch(error => message(error.message, true));
-document.getElementById("draftBtn").onclick = () => draftCurrent().catch(error => message(error.message, true));
-document.getElementById("nextBtn").onclick = () => nextEmpty();
 document.getElementById("nextTopicBtn").onclick = () => moveTopic(1).catch(error => message(error.message, true));
-document.getElementById("nextTopicFooterBtn").onclick = () => moveTopic(1).catch(error => message(error.message, true));
 document.getElementById("prevTopicBtn").onclick = () => moveTopic(-1).catch(error => message(error.message, true));
-document.getElementById("reviewBtn").onclick = () => toggleReviewed().catch(error => message(error.message, true));
+for (const button of document.querySelectorAll("[data-review-next]")) {
+  button.onclick = () => reviewAndNext().catch(error => message(error.message, true));
+}
 document.getElementById("chatgptContextBtn").onclick = () => copyChatgptContext().catch(error => message(error.message, true));
 document.getElementById("exportFileBtn").onclick = () => exportContextFile().catch(error => message(error.message, true));
 document.getElementById("openImportBtn").onclick = () => triggerImportFile();
