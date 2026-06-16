@@ -2,11 +2,11 @@
 
 Локальный MVP для weekly-отчета Евгению.
 
-Текущая Google Sheet остается source of truth. Код не зависит от Google Sheets API: на MVP он работает с CSV-экспортом нормализованной вкладки `Weekly MVP 2026-05-08`.
+Текущая Google Sheet остается source of truth. Основной weekly-сценарий работает от вкладки `Активные`: collector читает ее двухстрочную шапку, присваивает строкам сквозные `T-001`, `T-002`, ... на время сессии и пишет результат обратно в недельные колонки той же вкладки.
 
 ## Что уже поддержано
 
-- чтение нормализованной weekly-таблицы из CSV;
+- чтение вкладки `Активные` или нормализованной weekly-таблицы из CSV;
 - базовая валидация строк;
 - выгрузка вопросов к Евгению;
 - выгрузка кандидатов на sync;
@@ -27,7 +27,7 @@ PYTHONPATH=src python3 -m weekly_assistant.cli draft --csv exports/next_week.csv
 PYTHONPATH=src python3 -m weekly_assistant.cli export-questions --csv exports/drafted.csv --out exports/questions.txt
 PYTHONPATH=src python3 -m weekly_assistant.cli export-sync --csv exports/drafted.csv --out exports/sync.txt
 PYTHONPATH=src python3 -m weekly_assistant.cli integration-status
-PYTHONPATH=src python3 -m weekly_assistant.cli singularity-weekly-context --week-start 2026-05-01 --week-end 2026-05-07 --out exports/singularity_context.md
+PYTHONPATH=src python3 -m weekly_assistant.cli singularity-weekly-context --week-start 2026-05-01 --week-end 2026-05-08 --out exports/singularity_context.md
 ```
 
 ## Проверка
@@ -53,7 +53,7 @@ make collector
 http://127.0.0.1:8765
 ```
 
-В нем можно пройти active-темы, вставить сырой weekly dump, получить AI draft, экспортировать результат и записать измененные строки обратно в Google Sheet.
+В нем можно пройти темы из `Активные`, вставить сырой weekly dump, получить AI draft, импортировать JSON из ChatGPT Project и записать результат обратно в `Активные`. Collector создает недостающие недельные колонки в группах `Статус предыдущей недели`, `Куда мы докатились на этой`, `Когда докатимся и куда`, но не создает дополнительные MVP/Questions/Sync вкладки в основном сценарии.
 
 `make viewer` поднимает read-only web-view для компактного просмотра weekly:
 
@@ -78,13 +78,14 @@ make collector COLLECTOR_REFRESH=--refresh
 ## Документация
 
 - `docs/architecture.md` — слои проекта.
+- `docs/technical_spec.md` — текущее ТЗ для collector через `Активные`.
 - `docs/workflows.md` — рабочий weekly-flow.
 - `docs/integration_matrix.md` — проверенные API и ограничения.
-- `docs/sheet_mapping.md` — mapping колонок нормализованной вкладки.
+- `docs/sheet_mapping.md` — mapping колонок вкладки `Активные`.
 - `docs/first_launch.md` — инструкция первого запуска.
 - `docs/credentials.md` — как получить и подключить API keys/tokens.
 - `docs/chatgpt_weekly_project_prompt.md` — prompt для сбора weekly через ChatGPT UI и импорта JSON в collector.
-- `docs/legacy_active_transfer.md` — перенос из нормализованной weekly-вкладки в старую вкладку `Активные`.
+- `docs/legacy_active_transfer.md` — старый перенос из нормализованной weekly-вкладки в `Активные` (legacy-сценарий).
 - `docs/weekly_viewer.md` — read-only интерфейс для просмотра weekly.
 
 ## MVP-ограничение

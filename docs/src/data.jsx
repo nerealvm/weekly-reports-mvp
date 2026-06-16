@@ -1,16 +1,17 @@
 // ─── Google Sheets configuration ────────────────────────────────────────────
 // 1. Share the spreadsheet: "Доступ → Все, у кого есть ссылка → Читатель"
 // 2. If the spreadsheet is public by link, GitHub Pages reads the current
-//    weekly tab through the public gviz CSV endpoint, no API key required.
-// 3. Optional: paste an API key to enable automatic week-tab discovery.
+//    `Активные` through the public gviz CSV endpoint, no API key required.
+// 3. Optional: paste an API key to read the same sheet through Sheets API.
 // 4. Optional: deploy Apps Script web app to receive comments → see apps_script.js
 const SHEETS_CONFIG = {
   spreadsheetId: "14vjMSr2YaGRcD9Ud1zrDvULhEIE6o5kmZkKfdxarSFs",
-  apiKey: "",          // ← optional: API-ключ для discovery недельных вкладок
-  publicCsvGid: "",
-  publicCsvSheetName: "Weekly MVP 2026-05-29",
+  apiKey: "AIzaSyDIJh8TWdiGSR0R9RfLZk50nEsVXGw219o",
+  publicCsvGid: "0",
+  publicCsvSheetName: "Активные",
   appsScriptUrl: "https://script.google.com/macros/s/AKfycbxqO_xtAfwH3jmstuS-uEl8696HMEeEp_KmTMSegmy5sw4hUgoMo2ra3Yje0ZisuSS6/exec",   // ← URL задеплоенного Apps Script (для записи комментариев)
-  sheetPattern: /^Weekly MVP \d{4}-\d{2}-\d{2}$/,
+  activeSheetName: "Активные",
+  sheetPattern: /^Активные$/,
 };
 
 // ─── Sheet column headers (from csv_adapter.py HEADERS) ─────────────────────
@@ -51,17 +52,16 @@ async function fetchSheetList() {
     .map(s => s.properties?.title || "")
     .filter(t => SHEETS_CONFIG.sheetPattern.test(t))
     .map(t => {
-      const m = t.match(/(\d{4})-(\d{2})-(\d{2})$/);
-      return { sheetName: t, date: m ? new Date(+m[1], +m[2]-1, +m[3]) : new Date(0) };
+      return { sheetName: t, date: new Date() };
     })
     .sort((a, b) => b.date - a.date);
-  if (!sheets.length) throw new Error("Не найдено вкладок «Weekly MVP YYYY-MM-DD»");
+  if (!sheets.length) throw new Error("Не найдена вкладка «Активные»");
   return sheets;
 }
 
 // Fetches and parses one sheet into { TOPICS, WEEK }
 async function fetchWeekData(sheetName) {
-  const range = encodeURIComponent(`'${sheetName}'!A:T`);
+  const range = encodeURIComponent(`'${sheetName}'!A:CR`);
   const data = await sheetsGet(`/values/${range}`);
   const values = data.values || [];
   if (values.length < 2) throw new Error(`Пустая вкладка: ${sheetName}`);
@@ -100,6 +100,11 @@ async function fetchStaticReport() {
 
 // ─── Parser ──────────────────────────────────────────────────────────────────
 function parseSheetValues(values, sheetName) {
+  if (isActiveSheetValues(values)) return parseActiveSheetValues(values, sheetName);
+  return parseNormalizedSheetValues(values, sheetName);
+}
+
+function parseNormalizedSheetValues(values, sheetName) {
   const headers = values[0].map(h => (h || "").trim());
   const idx = {};
   for (const [key, header] of Object.entries(COL)) {
@@ -139,6 +144,126 @@ function parseSheetValues(values, sheetName) {
 
   const WEEK = weekMetaFromSheetName(sheetName);
   return { TOPICS, WEEK };
+}
+
+function parseActiveSheetValues(values, sheetName) {
+  const first = (values[0] || []).map(cleanCell);
+  const second = (values[1] || []).map(cleanCell);
+  const topicCol = findHeaderIndex(first, "тема");
+  const dateCol = findHeaderIndex(first, "дата постановки");
+  const currentColumns = weekColumns(first, second, "куда мы докатились");
+  const previousColumns = weekColumns(first, second, "статус предыдущей недели");
+  const milestoneColumns = weekColumns(first, second, "когда докатимся");
+  const ballCol = findHeaderIndex(first, "на чьей стороне мяч");
+  const questionCol = findHeaderIndex(first, "открытые вопросы");
+  const currentWeek = currentColumns[currentColumns.length - 1];
+  const weekLabel = currentWeek?.label || "";
+  const previousCol = findWeekIndex(previousColumns, weekLabel) ?? previousCurrentIndex(currentColumns, weekLabel);
+  const milestoneCol = findWeekIndex(milestoneColumns, weekLabel) ?? milestoneColumns[milestoneColumns.length - 1]?.index;
+
+  let section = "";
+  let count = 0;
+  const TOPICS = values.slice(2).flatMap(row => {
+    const sectionCell = cleanCell(row[0]);
+    const title = cleanCell(row[topicCol]);
+    if (!title) {
+      if (sectionCell) section = sectionCell;
+      return [];
+    }
+    count += 1;
+    const result = cleanCell(row[currentWeek?.index]);
+    const milestoneText = cleanCell(row[milestoneCol]);
+    const question = cleanCell(row[questionCol]);
+    const ball = parseBall(cleanCell(row[ballCol]));
+    return [{
+      id: `T-${String(count).padStart(3, "0")}`,
+      title,
+      section,
+      dateCreated: cleanCell(row[dateCol]),
+      facts: cleanCell(row[previousCol]),
+      result: result || "Без нового движения за неделю.",
+      milestones: parseMilestones(milestoneText),
+      ball: ball.ball,
+      ballName: ball.name,
+      question,
+      movement: movementFromResult(result),
+      sync: question ? "yes" : "no",
+      syncReason: question ? "Есть открытый вопрос." : "",
+      link: "",
+    }];
+  });
+
+  return { TOPICS, WEEK: weekMetaFromActiveLabel(weekLabel, sheetName) };
+}
+
+function isActiveSheetValues(values) {
+  const first = (values[0] || []).map(cleanCell).join(" ").toLowerCase();
+  return first.includes("статус предыдущей недели")
+    && first.includes("куда мы докатились")
+    && first.includes("когда докатимся");
+}
+
+function weekColumns(first, second, groupQuery) {
+  const groupStart = findHeaderIndex(first, groupQuery);
+  const nextGroupStart = nextHeaderIndex(first, groupStart + 1) ?? Math.max(first.length, second.length);
+  const result = [];
+  for (let index = groupStart + 1; index < nextGroupStart; index += 1) {
+    const label = cleanCell(second[index]);
+    if (label) result.push({ label, index });
+  }
+  return result;
+}
+
+function findWeekIndex(columns, weekLabel) {
+  return columns.find(column => column.label === weekLabel)?.index;
+}
+
+function previousCurrentIndex(columns, weekLabel) {
+  const position = columns.findIndex(column => column.label === weekLabel);
+  if (position > 0) return columns[position - 1].index;
+  if (position === 0) return undefined;
+  return columns[columns.length - 1]?.index;
+}
+
+function findHeaderIndex(row, query) {
+  const normalizedQuery = normalize(query);
+  const index = row.findIndex(value => normalize(value).includes(normalizedQuery));
+  if (index < 0) throw new Error(`Не найдена колонка: ${query}`);
+  return index;
+}
+
+function nextHeaderIndex(row, startIndex) {
+  for (let index = startIndex; index < row.length; index += 1) {
+    if (cleanCell(row[index])) return index;
+  }
+  return undefined;
+}
+
+function parseMilestones(value) {
+  return String(value || "")
+    .replaceAll(";", "\n")
+    .split(/\n+/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .map(item => {
+      const match = item.match(/^(\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?|\d{1,2}[./-]\d{4}|\d{4}-\d{2}-\d{2}|TBD)\s+(.+)$/i);
+      return match ? { date: match[1], text: match[2] } : { date: "", text: item };
+    });
+}
+
+function movementFromResult(value) {
+  const normalized = normalize(value);
+  if (!normalized) return "unclear";
+  if (normalized.includes("без нового движения") || normalized.includes("без движения")) return "no_movement";
+  return "real_result";
+}
+
+function cleanCell(value) {
+  return String(value ?? "").trim();
+}
+
+function normalize(value) {
+  return cleanCell(value).toLowerCase().replace(/\s+/g, " ");
 }
 
 function parseCsv(text) {
@@ -243,6 +368,27 @@ function weekMetaFromSheetName(sheetName) {
     to: "Евгению",
     from: "Володя",
     prevWeek: `W${weekNum-1} · ${prevRange}`,
+    sheetName,
+  };
+}
+
+function weekMetaFromActiveLabel(weekLabel, sheetName) {
+  const match = String(weekLabel || "").match(/^(\d{1,2})[.](\d{1,2})$/);
+  if (!match) return { label: weekLabel || sheetName, range: weekLabel || sheetName, rangeShort: "", to: "Евгению", from: "Володя", prevWeek: "", sheetName };
+  const year = new Date().getFullYear();
+  const end = new Date(year, Number(match[2]) - 1, Number(match[1]));
+  const start = new Date(end); start.setDate(start.getDate() - 6);
+  const MONTHS_RU = ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"];
+  const range = `${start.getDate()} — ${end.getDate()} ${MONTHS_RU[end.getMonth()]} ${end.getFullYear()}`;
+  const rangeShort = `${String(start.getDate()).padStart(2,"0")}.${String(start.getMonth()+1).padStart(2,"0")} – ${String(end.getDate()).padStart(2,"0")}.${String(end.getMonth()+1).padStart(2,"0")}`;
+  const weekNum = getISOWeek(end);
+  return {
+    label: `W${weekNum}`,
+    range,
+    rangeShort,
+    to: "Евгению",
+    from: "Володя",
+    prevWeek: "",
     sheetName,
   };
 }

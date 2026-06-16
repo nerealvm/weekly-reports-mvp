@@ -1,29 +1,52 @@
 # Sheet Mapping
 
-Рабочая вкладка MVP: `Weekly MVP 2026-05-08`.
+Рабочая вкладка: `Активные`.
 
-Обязательные колонки:
+Collector не полагается на фиксированные буквы колонок. Он читает первые две строки шапки и ищет группы по названиям.
 
-| Column | Field |
+## Базовые поля строки
+
+| Header | Field |
 | --- | --- |
-| Секция | section |
-| Topic ID | topic_id |
-| Тема | topic_title |
-| Дата постановки | date_created |
-| Lifecycle | lifecycle |
-| Focus | focus |
-| Результат прошлой недели | previous_week_result |
-| Факты этой недели | current_week_facts |
-| AI draft result | ai_draft_result |
-| Итоговая формулировка | final_result |
-| Ближайшая веха | next_milestone |
-| Дата вехи | next_milestone_date |
-| На чьей стороне мяч | ball_side |
-| Открытый вопрос к Евгению | open_question_to_evgeny |
-| Movement type | movement_type |
-| Нужен sync | needs_sync |
-| Причина sync | sync_reason |
-| Source / links | source_links |
-| Review status | review_status |
+| `Тема` | `topic_title` |
+| `Дата постановки` | `date_created` |
+| Секция-строка слева, например `Проекты` / `Задачи` | `section` |
 
-Служебная колонка `Legacy row` может быть скрыта и не нужна для CSV-экспорта.
+`Topic ID` в `Активные` не хранится. Collector присваивает сквозные номера в порядке строк текущей сессии: `T-001`, `T-002`, ...
+
+## Недельные группы
+
+| Группа в строке 1 | Даты в строке 2 | Field |
+| --- | --- | --- |
+| `Статус предыдущей недели` | дата недели | `previous_week_result` |
+| `Куда мы докатились на этой` | дата недели | `final_result` |
+| `Когда докатимся и куда` | дата недели | `next_milestone` / `milestones[]` |
+
+Для новой недели `Write Active` создает недостающую дату сразу во всех трех группах.
+
+`previous_week_result` заполняется копией предыдущего значения из группы `Куда мы докатились на этой`. Это поле не должен придумывать ChatGPT.
+
+## Постоянные колонки
+
+| Header | Field |
+| --- | --- |
+| `На чьей стороне мяч` | `ball_side` |
+| `Открытые вопросы` | `open_question_to_evgeny` |
+| `Movement type` | `movement_type`, скрытая служебная колонка |
+| `Нужен sync` | `needs_sync`, скрытая служебная колонка |
+| `Причина sync` | `sync_reason`, скрытая служебная колонка |
+
+Эти колонки не размножаются по неделям. Если пользователь не менял мяч, collector сохраняет прежнее значение.
+
+`Movement type`, `Нужен sync` и `Причина sync` создаются в конце вкладки `Активные` при `Write Active` и сразу скрываются через Google Sheets `hiddenByUser`.
+
+## Локальные поля collector
+
+Эти поля нужны только для web-сессии, экспорта и AI draft; в `Активные` отдельными колонками не пишутся:
+
+| Field | Purpose |
+| --- | --- |
+| `current_week_facts` | почти дословная сырая фактура пользователя |
+| `ai_draft_result` | черновик AI |
+| `review_status` | локальный статус проверки |
+| `source_links` | локальные ссылки/источники |

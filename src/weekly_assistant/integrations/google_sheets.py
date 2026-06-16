@@ -66,6 +66,32 @@ class GoogleSheetsAdapter:
         url = f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}:batchUpdate"
         return self.http_client.request("POST", url, headers=self._auth_headers(), payload={"requests": requests})
 
+    def sheet_properties(self) -> list[dict]:
+        metadata = self.spreadsheet_metadata("sheets.properties(sheetId,title,index)")
+        return [sheet.get("properties", {}) for sheet in metadata.get("sheets", [])]
+
+    def duplicate_sheet(self, source_title: str, new_title: str) -> dict:
+        properties = self.sheet_properties()
+        by_title = {sheet.get("title", ""): sheet for sheet in properties}
+        if new_title in by_title:
+            return {"skipped": True, "properties": by_title[new_title]}
+        source = by_title.get(source_title)
+        if not source:
+            raise ValueError(f"Source sheet not found: {source_title}")
+        result = self.batch_update(
+            [
+                {
+                    "duplicateSheet": {
+                        "sourceSheetId": source["sheetId"],
+                        "insertSheetIndex": int(source.get("index", 0)) + 1,
+                        "newSheetName": new_title,
+                    }
+                }
+            ]
+        )
+        properties = result.get("replies", [{}])[0].get("duplicateSheet", {}).get("properties", {})
+        return {"skipped": False, "properties": properties, "result": result}
+
     def _values_url(self, a1_range: str) -> str:
         spreadsheet_id = self.settings.google_sheets_spreadsheet_id
         encoded_range = quote(a1_range, safe="")

@@ -310,7 +310,7 @@ function topicsToReportJson(topics, week) {
   }));
   return {
     week_label: week.rangeShort || week.label || "",
-    source_sheet: week.sheetName || `Weekly MVP ${new Date().toISOString().slice(0, 10)}`,
+    source_sheet: week.sheetName || "Активные",
     metrics: {
       total_active: topics.length,
       real_result: topics.filter(t => t.movement === "real_result").length,

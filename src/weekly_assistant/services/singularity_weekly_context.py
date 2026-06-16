@@ -100,7 +100,7 @@ def build_singularity_weekly_context(
         for task in _dedupe_items(task_response.get("tasks", [])):
             view = _task_view(task, matched)
             if view.checked:
-                if view.done_date and week_start <= view.done_date <= week_end:
+                if view.done_date and week_start <= view.done_date < week_end:
                     completed.append(view)
             else:
                 open_tasks.append(view)
@@ -121,7 +121,7 @@ def format_singularity_weekly_context(context: SingularityWeeklyContext) -> str:
     lines = [
         "# Singularity weekly context",
         "",
-        f"Период: {context.week_start.isoformat()} - {context.week_end.isoformat()}",
+        f"Период: {context.week_start.isoformat()} - {context.week_end.isoformat()} (end exclusive)",
         f"Matched projects: {len(context.matched_projects)}",
         f"Completed this week: {len(context.completed_this_week)}",
         f"Open tasks: {len(context.open_tasks)}",

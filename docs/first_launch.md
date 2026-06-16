@@ -1,102 +1,77 @@
 # First Launch
 
-Дата подготовки: 2026-05-06.
+Дата актуализации: 2026-06-15.
 
-## Статус
+## Текущий статус
 
-Первый локальный запуск готов.
+Основной запуск переведен на вкладку `Активные`.
 
-Проверенная вкладка:
+Проверенная целевая таблица:
 
 - spreadsheet: `14vjMSr2YaGRcD9Ud1zrDvULhEIE6o5kmZkKfdxarSFs`
-- sheet: `Weekly MVP 2026-05-08`
-- gid: `20260508`
+- sheet: `Активные`
+- gid: `0`
 
-## Команда полного запуска
-
-```bash
-make live-full-test
-```
-
-Что делает команда:
-
-1. скачивает CSV из `Weekly MVP 2026-05-08`;
-2. проверяет launch readiness;
-3. пересчитывает rule-based поля;
-4. создает draft следующей недели;
-5. генерирует draft строк;
-6. выгружает вопросы к Евгению;
-7. выгружает кандидатов на sync;
-8. сохраняет summary.
-
-## Проверенные результаты
-
-Последний прогон:
-
-```text
-Validation passed.
-READY
-total: 33
-active: 24
-paused: 9
-active_without_milestone: 0
-active_without_ball_side: 0
-open_questions: 12
-```
-
-Итоговый draft следующей недели:
-
-```text
-Всего тем: 24
-Active: 24
-Paused: 0
-Нужен sync: 13
-Открытых вопросов: 12
-No movement: 16
-Unclear: 8
-```
-
-## Артефакты запуска
-
-```text
-/tmp/weekly-live-test/source.csv
-/tmp/weekly-live-test/00_validation.txt
-/tmp/weekly-live-test/01_refreshed.csv
-/tmp/weekly-live-test/02_next_week.csv
-/tmp/weekly-live-test/03_drafted.csv
-/tmp/weekly-live-test/questions.txt
-/tmp/weekly-live-test/sync.txt
-/tmp/weekly-live-test/summary.txt
-/tmp/weekly-live-test/singularity_context.md
-```
-
-## Singularity context
-
-Если Singularity token настроен, можно отдельно собрать контекст по релевантным проектам:
+## Запуск collector
 
 ```bash
-make singularity-context WEEK_START=2026-05-01 WEEK_END=2026-05-07
+make collector WEEK_START=2026-06-05 WEEK_END=2026-06-12 COLLECTOR_REFRESH=--refresh
 ```
 
-Конфиг проектов:
+Открыть:
 
 ```text
-config/singularity_projects.csv
+http://127.0.0.1:8765
 ```
 
-Этот режим не использует недоступный shared project `Отдать Володе`; он работает по списку доступных проектов и вытаскивает выполненные за неделю задачи плюс открытые задачи.
+Что делает запуск:
 
-## Что проверить глазами перед отправкой Евгению
+1. скачивает CSV вкладки `Активные`;
+2. читает двухстрочную шапку;
+3. присваивает темам временные сквозные `T-001`, `T-002`, ...;
+4. берет текущие значения из недельных групп;
+5. показывает темы в web collector;
+6. позволяет собрать фактуру вручную или через ChatGPT Project;
+7. пишет результат обратно через `Write Active`.
 
-- `questions.txt`: убрать вопросы, которые на самом деле не надо отправлять Евгению.
-- `sync.txt`: решить, нужен один общий sync или точечные ответы по вопросам.
-- `03_drafted.csv`: заменить rule-based drafts фактическими weekly-формулировками там, где есть новая фактура.
-- `singularity_context.md`: использовать как источник фактуры по выполненным задачам и следующим действиям.
+## Перед первой записью
 
-## Что не входит в первый запуск
+Проверить в UI:
 
-- автоматический write-back в Google Sheets;
-- автоматический Telegram ingestion;
-- автоматическое внесение Singularity context обратно в строки weekly.
+- период вверху collector;
+- что темы соответствуют вкладке `Активные`;
+- что `Статус предыдущей недели` выглядит как копия предыдущей колонки `Куда мы докатились на этой`;
+- что `Куда мы докатились на этой` заполнено только подтвержденной фактурой;
+- что `Когда докатимся и куда` не содержит автоматически скопированных старых вех, если пользователь не назвал новую;
+- что `На чьей стороне мяч` не очищен случайно;
+- что `Открытые вопросы` содержат только явные вопросы.
 
-Для этих сценариев нужны ключи в `.env` и отдельный интеграционный тест.
+## ChatGPT Project
+
+Использовать prompt:
+
+```text
+docs/chatgpt_weekly_project_prompt.md
+```
+
+Рабочий сценарий:
+
+1. В collector нажать `Copy ChatGPT context`.
+2. Вставить JSON в ChatGPT Project.
+3. Пройти темы по порядку.
+4. Получить `weekly_import_<week_end>.json`.
+5. Импортировать JSON обратно в collector.
+6. Проверить строки глазами.
+7. Нажать `Write Active`.
+
+## Проверка разработки
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests
+python3 -m compileall -q src
+node --check --input-type=commonjs < docs/src/data.jsx
+```
+
+## Известное ограничение
+
+Collector не переносит строки между вкладками `Активные`, `Архив`, `Закрытые`. Если тему нужно физически убрать из `Активные`, это делается вручную в Google Sheets.

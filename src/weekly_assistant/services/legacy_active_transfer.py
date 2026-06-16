@@ -35,6 +35,8 @@ class LegacyTransferResult:
     columns: LegacyTransferColumns
     items: tuple[LegacyTransferItem, ...]
     skipped: tuple[str, ...]
+    created_week_columns: tuple[str, ...] = ()
+    created_legacy_rows: tuple[tuple[str, str, int], ...] = ()
 
 
 def transfer_weekly_to_active(
@@ -48,19 +50,57 @@ def transfer_weekly_to_active(
     ball_col: str = "",
     question_col: str = "",
     include_open_questions: bool = False,
+    ensure_week_columns: bool = False,
+    create_missing_legacy_rows: bool = False,
     apply: bool = False,
 ) -> LegacyTransferResult:
     source_values = adapter.read_values(f"'{source_sheet}'!A:T")
     target_header_values = adapter.read_values(f"'{target_sheet}'!1:2")
-    columns = resolve_legacy_columns(
-        target_header_values,
-        week_label=week_label,
-        status_col=status_col,
-        milestone_col=milestone_col,
-        ball_col=ball_col,
-        question_col=question_col,
-        include_open_questions=include_open_questions,
-    )
+    created_week_columns: tuple[str, ...] = ()
+    if ensure_week_columns and week_label:
+        if apply and not (status_col or milestone_col):
+            columns, created_week_columns = ensure_legacy_week_columns(adapter, target_sheet=target_sheet, week_label=week_label)
+            target_header_values = adapter.read_values(f"'{target_sheet}'!1:2")
+        elif not apply:
+            target_header_values, created_week_columns = preview_legacy_week_columns(target_header_values, week_label)
+            columns = resolve_legacy_columns(
+                target_header_values,
+                week_label=week_label,
+                status_col=status_col,
+                milestone_col=milestone_col,
+                ball_col=ball_col,
+                question_col=question_col,
+                include_open_questions=include_open_questions,
+            )
+        else:
+            columns = resolve_legacy_columns(
+                target_header_values,
+                week_label=week_label,
+                status_col=status_col,
+                milestone_col=milestone_col,
+                ball_col=ball_col,
+                question_col=question_col,
+                include_open_questions=include_open_questions,
+            )
+    else:
+        columns = resolve_legacy_columns(
+            target_header_values,
+            week_label=week_label,
+            status_col=status_col,
+            milestone_col=milestone_col,
+            ball_col=ball_col,
+            question_col=question_col,
+            include_open_questions=include_open_questions,
+        )
+    created_legacy_rows: tuple[tuple[str, str, int], ...] = ()
+    if create_missing_legacy_rows and apply:
+        source_values, created_legacy_rows = ensure_legacy_rows(
+            adapter,
+            source_sheet=source_sheet,
+            target_sheet=target_sheet,
+            source_values=source_values,
+            target_header_values=target_header_values,
+        )
     items, skipped = build_legacy_transfer_items(source_values, columns, include_open_questions=include_open_questions)
     if apply:
         for item in items:
@@ -73,7 +113,124 @@ def transfer_weekly_to_active(
         columns=columns,
         items=tuple(items),
         skipped=tuple(skipped),
+        created_week_columns=created_week_columns,
+        created_legacy_rows=created_legacy_rows,
     )
+
+
+def ensure_legacy_week_columns(
+    adapter: GoogleSheetsAdapter,
+    *,
+    target_sheet: str,
+    week_label: str,
+) -> tuple[LegacyTransferColumns, tuple[str, ...]]:
+    header_values = adapter.read_values(f"'{target_sheet}'!1:2")
+    requests, created = build_legacy_week_column_requests(adapter, target_sheet, header_values, week_label)
+    if requests:
+        adapter.batch_update(requests)
+        header_values = adapter.read_values(f"'{target_sheet}'!1:2")
+    return resolve_legacy_columns(header_values, week_label=week_label), tuple(created)
+
+
+def preview_legacy_week_columns(header_values: list[list[str]], week_label: str) -> tuple[list[list[str]], tuple[str, ...]]:
+    first = list(_row_at(header_values, 0))
+    second = list(_row_at(header_values, 1))
+    created: list[str] = []
+    for group_query, label in (("когда докатимся", "milestone"), ("куда мы докатились", "status")):
+        insertion_index = _missing_week_insertion_index(first, second, group_query, week_label)
+        if insertion_index is None:
+            continue
+        _insert_cell(first, insertion_index, "")
+        _insert_cell(second, insertion_index, week_label)
+        created.append(label)
+    return [first, second], tuple(reversed(created))
+
+
+def build_legacy_week_column_requests(
+    adapter: GoogleSheetsAdapter,
+    target_sheet: str,
+    header_values: list[list[str]],
+    week_label: str,
+) -> tuple[list[dict], list[str]]:
+    sheet_id = _sheet_id(adapter, target_sheet)
+    first = _row_at(header_values, 0)
+    second = _row_at(header_values, 1)
+    insertions = []
+    for group_query, label in (("куда мы докатились", "status"), ("когда докатимся", "milestone")):
+        insertion_index = _missing_week_insertion_index(first, second, group_query, week_label)
+        if insertion_index is not None:
+            insertions.append((insertion_index, label))
+    requests = []
+    created = []
+    for insertion_index, label in sorted(insertions, reverse=True):
+        start_index = insertion_index - 1
+        requests.extend(
+            [
+                {
+                    "insertDimension": {
+                        "range": {"sheetId": sheet_id, "dimension": "COLUMNS", "startIndex": start_index, "endIndex": start_index + 1},
+                        "inheritFromBefore": True,
+                    }
+                },
+                {
+                    "updateCells": {
+                        "start": {"sheetId": sheet_id, "rowIndex": 1, "columnIndex": start_index},
+                        "rows": [{"values": [{"userEnteredValue": {"stringValue": week_label}}]}],
+                        "fields": "userEnteredValue",
+                    }
+                },
+            ]
+        )
+        created.append(label)
+    return requests, list(reversed(created))
+
+
+def ensure_legacy_rows(
+    adapter: GoogleSheetsAdapter,
+    *,
+    source_sheet: str,
+    target_sheet: str,
+    source_values: list[list[str]],
+    target_header_values: list[list[str]],
+) -> tuple[list[list[str]], tuple[tuple[str, str, int], ...]]:
+    if not source_values:
+        return source_values, ()
+    headers = source_values[0]
+    header_index = {value: index for index, value in enumerate(headers)}
+    legacy_index = header_index.get(LEGACY_ROW_HEADER)
+    if legacy_index is None:
+        return source_values, ()
+    source_rows = [list(row) for row in source_values]
+    rows_to_append = []
+    source_row_numbers = []
+    created = []
+    for source_row_number, row in enumerate(source_rows[1:], start=2):
+        if _source_value(row, header_index, LEGACY_ROW_HEADER):
+            continue
+        if _source_value(row, header_index, HEADERS["lifecycle"]).casefold() != "active":
+            continue
+        topic_title = _source_value(row, header_index, HEADERS["topic_title"])
+        if not topic_title:
+            continue
+        rows_to_append.append(_legacy_row_values(row, header_index, target_header_values))
+        source_row_numbers.append(source_row_number)
+    if not rows_to_append:
+        return source_rows, ()
+    result = adapter.append_values(f"'{target_sheet}'!A:ZZ", rows_to_append)
+    start_row = _parse_updated_range_start_row(result.get("updates", {}).get("updatedRange", ""))
+    if not start_row:
+        raise RuntimeError("Could not determine appended legacy row number.")
+    for offset, source_row_number in enumerate(source_row_numbers):
+        legacy_row = start_row + offset
+        source_row = source_rows[source_row_number - 1]
+        while len(source_row) <= legacy_index:
+            source_row.append("")
+        source_row[legacy_index] = str(legacy_row)
+        topic_id = _source_value(source_row, header_index, HEADERS["topic_id"])
+        topic_title = _source_value(source_row, header_index, HEADERS["topic_title"])
+        adapter.update_values(f"'{source_sheet}'!{column_letter(legacy_index + 1)}{source_row_number}", [[str(legacy_row)]])
+        created.append((topic_id, topic_title, legacy_row))
+    return source_rows, tuple(created)
 
 
 def resolve_legacy_columns(
@@ -193,6 +350,11 @@ def format_legacy_transfer_result(result: LegacyTransferResult) -> str:
     for item in result.items:
         updates = ", ".join(f"{column_letter(col)}{item.legacy_row}={_preview(value)}" for col, value in item.updates)
         lines.append(f"- {item.topic_id or '-'} {item.topic_title}: {updates}")
+    if result.created_week_columns:
+        lines.append(f"Created week columns: {', '.join(result.created_week_columns)}")
+    if result.created_legacy_rows:
+        lines.append("Created legacy rows:")
+        lines.extend(f"- {topic_id or '-'} {topic_title}: row {legacy_row}" for topic_id, topic_title, legacy_row in result.created_legacy_rows)
     if result.skipped:
         lines.append("Skipped:")
         lines.extend(f"- {item}" for item in result.skipped)
@@ -220,6 +382,66 @@ def column_letter(index: int | None) -> str:
         value, remainder = divmod(value - 1, 26)
         result = chr(ord("A") + remainder) + result
     return result
+
+
+def _missing_week_insertion_index(first_row: list[str], second_row: list[str], group_query: str, week_label: str) -> int | None:
+    group_start = _find_header_column(first_row, group_query)
+    next_group_start = _next_non_empty_index(first_row, group_start + 1)
+    group_end = (next_group_start - 1) if next_group_start else max(len(first_row), len(second_row))
+    for index in range(group_start + 1, group_end + 1):
+        if _cell(second_row, index).strip() == week_label:
+            return None
+    return next_group_start or (max(len(first_row), len(second_row)) + 1)
+
+
+def _insert_cell(row: list[str], index: int, value: str) -> None:
+    while len(row) < index - 1:
+        row.append("")
+    row.insert(index - 1, value)
+
+
+def _sheet_id(adapter: GoogleSheetsAdapter, title: str) -> int:
+    for properties in adapter.sheet_properties():
+        if properties.get("title") == title:
+            return int(properties["sheetId"])
+    raise ValueError(f"Sheet not found: {title}")
+
+
+def _legacy_row_values(row: list[str], header_index: dict[str, int], target_header_values: list[list[str]]) -> list[str]:
+    first = _row_at(target_header_values, 0)
+    second = _row_at(target_header_values, 1)
+    width = max(len(first), len(second), 4)
+    values = [""] * width
+    _set_if_found(values, first, "тема", _source_value(row, header_index, HEADERS["topic_title"]))
+    _set_if_found(values, first, "дата постановки", _source_value(row, header_index, HEADERS["date_created"]))
+    _set_if_found(values, first, "статус предыдущей недели", _source_value(row, header_index, HEADERS["previous_week_result"]))
+    _set_if_found(values, first, "на чьей стороне мяч", _source_value(row, header_index, HEADERS["ball_side"]))
+    _set_if_found(values, first, "открытые вопросы", _source_value(row, header_index, HEADERS["open_question_to_evgeny"]))
+    return values
+
+
+def _set_if_found(values: list[str], header_row: list[str], query: str, value: str) -> None:
+    if not value:
+        return
+    try:
+        index = _find_header_column(header_row, query)
+    except ValueError:
+        return
+    while len(values) < index:
+        values.append("")
+    values[index - 1] = value
+
+
+def _source_value(row: list[str], header_index: dict[str, int], header: str) -> str:
+    index = header_index.get(header)
+    if index is None or index >= len(row):
+        return ""
+    return str(row[index]).strip()
+
+
+def _parse_updated_range_start_row(value: str) -> int | None:
+    match = re.search(r"![A-Z]+(\d+):", str(value or ""))
+    return int(match.group(1)) if match else None
 
 
 def _find_week_column(first_row: list[str], second_row: list[str], group_query: str, week_label: str) -> int:

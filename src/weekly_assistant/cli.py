@@ -85,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
     transfer_active.add_argument("--ball-col", default="", help="Override legacy ball-side column, e.g. AP")
     transfer_active.add_argument("--question-col", default="", help="Override legacy open question column, e.g. AQ")
     transfer_active.add_argument("--include-open-questions", action="store_true")
+    transfer_active.add_argument("--ensure-week-columns", action="store_true", help="Create missing weekly columns in the legacy target sheet")
+    transfer_active.add_argument("--create-missing-legacy-rows", action="store_true", help="Append active topics without Legacy row to the legacy target sheet")
     transfer_active.add_argument("--apply", action="store_true", help="Actually write to Google Sheets. Without this flag dry-run only.")
 
     subparsers.add_parser("integration-status")
@@ -107,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
     singularity_weekly_context = subparsers.add_parser("singularity-weekly-context")
     singularity_weekly_context.add_argument("--config", default="")
     singularity_weekly_context.add_argument("--week-start", required=True, help="Inclusive start date, YYYY-MM-DD")
-    singularity_weekly_context.add_argument("--week-end", required=True, help="Inclusive end date, YYYY-MM-DD")
+    singularity_weekly_context.add_argument("--week-end", required=True, help="Exclusive end date, YYYY-MM-DD")
     singularity_weekly_context.add_argument("--max-tasks-per-project", type=int, default=100)
     singularity_weekly_context.add_argument("--out", help="Optional markdown output path")
 
@@ -167,6 +169,8 @@ def main(argv: list[str] | None = None) -> int:
             ball_col=args.ball_col,
             question_col=args.question_col,
             include_open_questions=args.include_open_questions,
+            ensure_week_columns=args.ensure_week_columns,
+            create_missing_legacy_rows=args.create_missing_legacy_rows,
             apply=args.apply,
         )
         print(format_legacy_transfer_result(result))

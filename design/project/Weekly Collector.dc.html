@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  textarea,input,button,select{font-family:inherit;font-size:inherit;color:inherit;}
+  textarea{resize:vertical;}
+  button{cursor:pointer;background:none;border:none;}
+  svg{display:block;}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-thumb{background:#dcdcd6;border-radius:8px;border:3px solid transparent;background-clip:padding-box;}
+  ::-webkit-scrollbar-thumb:hover{background:#c9c9c1;background-clip:padding-box;}
+  ::placeholder{color:#b4b3ab;}
+  @keyframes wcfade{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+</style>
+</helmet>
+
+<div style="height:100vh;display:flex;flex-direction:column;background:#f4f4f1;color:#25241f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;">
+
+  <!-- TOP BAR -->
+  <header style="display:flex;align-items:center;gap:18px;height:58px;padding:0 18px;background:#fff;border-bottom:1px solid #e7e7e3;flex-shrink:0;position:relative;z-index:20;">
+    <div style="display:flex;align-items:center;gap:11px;flex-shrink:0;">
+      <div style="{{ logoStyle }}">W</div>
+      <div style="display:flex;flex-direction:column;line-height:1.15;">
+        <span style="font-weight:650;font-size:14px;letter-spacing:-.2px;">Weekly Collector</span>
+        <span style="font-size:11px;color:#9c9b93;">{{ sourceLabel }} · проверка недели</span>
+      </div>
+      <div style="margin-left:6px;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid #e7e7e3;border-radius:7px;font-size:12px;font-weight:550;color:#56554f;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#2e8b57;"></span>{{ weekPeriod }}
+      </div>
+    </div>
+
+    <!-- progress -->
+    <div style="{{ progressWrap }}">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:5px;">
+        <span style="font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9c9b93;">Проверено</span>
+        <span style="font-size:12px;color:#6f6e68;font-variant-numeric:tabular-nums;"><b style="color:#25241f;">{{ reviewed }}</b> / {{ filled }} тем</span>
+      </div>
+      <div style="height:6px;border-radius:6px;background:#ececE7;overflow:hidden;">
+        <div style="{{ barStyle }}"></div>
+      </div>
+      <div style="margin-top:5px;font-size:11px;color:#9c9b93;font-variant-numeric:tabular-nums;">{{ pending }} ждут · {{ empties }} без данных</div>
+    </div>
+
+    <!-- actions -->
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0;">
+      <button onClick="{{ onDownloadContext }}" style="{{ iconBtn }}" style-hover="background:#f4f4f1;border-color:#dcdcd6" title="Скачать JSON-контекст для ChatGPT">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v7"/><path d="M5 7l3 3 3-3"/><path d="M3 13h10"/></svg>
+        <span style="{{ btnLabel }}">Контекст для GPT</span>
+      </button>
+      <button onClick="{{ onImport }}" style="{{ accentBtn }}" style-hover="filter:brightness(.95)" title="Импортировать результат интервью из ChatGPT">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h9M9 5l3 3-3 3"/></svg>
+        <span>Импорт результата</span>
+      </button>
+
+      <div style="width:1px;height:26px;background:#e7e7e3;margin:0 2px;"></div>
+
+      <div style="position:relative;">
+        <button onClick="{{ onToggleFinal }}" style="{{ warnBtn }}" style-hover="background:#f8efd8">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11V3"/><path d="M5 6l3-3 3 3"/><path d="M3 13h10"/></svg>
+          <span>Write Active</span>
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="{{ caretStyle }}"><path d="M4 6l4 4 4-4"/></svg>
+        </button>
+        <sc-if value="{{ finalOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;top:calc(100% + 8px);right:0;width:300px;background:#fff;border:1px solid #e7e7e3;border-radius:10px;box-shadow:0 8px 28px rgba(40,38,30,.14);padding:13px;z-index:30;animation:wcfade .12s ease;">
+            <div style="{{ readyNote }}">{{ readyText }}</div>
+            <button onClick="{{ onWriteActive }}" style="{{ warnSolid }}width:100%;margin-bottom:7px;" style-hover="filter:brightness(.96)">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></svg>
+              Записать {{ filled }} тем в «Активные»
+            </button>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
+              <button onClick="{{ onStartWeek }}" style="{{ subtleBtn }}" style-hover="background:#f4f4f1">Start next week</button>
+              <button onClick="{{ onArchive }}" style="{{ subtleBtn }}" style-hover="background:#f4f4f1">Archive</button>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main style="{{ mainStyle }}">
+
+    <!-- LEFT: queue (collapsible) -->
+    <sc-if value="{{ leftCollapsed }}" hint-placeholder-val="{{ false }}">
+      <aside style="{{ railStyle }}">
+        <button onClick="{{ onToggleLeft }}" style="{{ railTop }}" style-hover="background:#f4f4f1" title="Развернуть очередь">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/><path d="M10 4l-4 4 4 4" opacity="0"/></svg>
+        </button>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:5px;align-items:center;">
+          <sc-for list="{{ topicViews }}" as="item" hint-placeholder-count="7">
+            <button onClick="{{ item.onSelect }}" style="{{ item.railItem }}" style-hover="{{ item.railHover }}" title="{{ item.name }}">
+              <span style="{{ item.railDot }}"></span>
+              <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;font-weight:600;color:{{ item.idColor }};">{{ item.num }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </aside>
+    </sc-if>
+
+    <sc-if value="{{ leftExpanded }}" hint-placeholder-val="{{ true }}">
+      <aside style="{{ leftStyle }}">
+        <div style="padding:14px 14px 10px;border-bottom:1px solid #eeeeea;flex-shrink:0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <span style="font-size:11px;font-weight:650;letter-spacing:.6px;text-transform:uppercase;color:#9c9b93;">Очередь тем</span>
+            <div style="display:flex;align-items:center;gap:2px;">
+              <button onClick="{{ onAddRow }}" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:550;color:{{ accent }};padding:4px 6px;border-radius:6px;" style-hover="background:{{ accentSoft }}">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8 4v8M4 8h8"/></svg>тема
+              </button>
+              <button onClick="{{ onToggleLeft }}" style="width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#9c9b93;" style-hover="background:#f4f4f1;color:#56554f" title="Свернуть очередь">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l-4 4 4 4"/></svg>
+              </button>
+            </div>
+          </div>
+          <div style="position:relative;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#b4b3ab;pointer-events:none;">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4"/><path d="M13 13l-3-3"/></svg>
+            </span>
+            <input onChange="{{ onSearch }}" value="{{ query }}" placeholder="Поиск темы…" style="width:100%;padding:8px 10px 8px 31px;border:1px solid #e7e7e3;border-radius:8px;font-size:12.5px;outline:none;background:#fafaf8;" style-focus="border-color:{{ accent }};background:#fff" />
+          </div>
+        </div>
+
+        <div style="{{ queueScroll }}">
+          <sc-for list="{{ topicViews }}" as="item" hint-placeholder-count="7">
+            <button onClick="{{ item.onSelect }}" style="{{ item.rowStyle }}" style-hover="{{ item.hoverStyle }}">
+              <span style="{{ item.dotStyle }}"></span>
+              <span style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;">
+                <span style="font-weight:560;font-size:13px;color:{{ item.nameColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;">{{ item.name }}</span>
+                <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:#a3a29b;">
+                  <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;color:{{ item.idColor }};">{{ item.id }}</span>
+                  <span style="color:#d2d1ca;">·</span>
+                  <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.section }}</span>
+                </span>
+              </span>
+              <span style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
+                <sc-if value="{{ item.reviewed }}" hint-placeholder-val="{{ false }}"><span style="color:#2e8b57;" title="Проверено"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></svg></span></sc-if>
+                <sc-if value="{{ item.hasQuestion }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;font-weight:700;color:#b07a1e;">?</span></sc-if>
+                <sc-if value="{{ item.manual }}" hint-placeholder-val="{{ true }}"><span style="width:6px;height:6px;border-radius:50%;background:#b07a1e;" title="изменено вручную"></span></sc-if>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+      </aside>
+    </sc-if>
+
+    <!-- CENTER: review editor -->
+    <section style="{{ centerStyle }}">
+
+      <div style="padding:18px 26px 15px;border-bottom:1px solid #eeeeea;flex-shrink:0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:9px;">
+          <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:#9c9b93;min-width:0;">
+            <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;color:{{ accent }};background:{{ accentSoft }};padding:2px 7px;border-radius:5px;letter-spacing:.3px;">{{ cur.id }}</span>
+            <span>{{ cur.section }}</span><span style="color:#d2d1ca;">·</span>
+            <span>строка #{{ cur.rowNumber }}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+            <button onClick="{{ onPrev }}" style="{{ prevStyle }}" style-hover="background:#f4f4f1" title="Предыдущая">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l-4 4 4 4"/></svg>
+            </button>
+            <span style="font-size:11.5px;color:#9c9b93;font-variant-numeric:tabular-nums;min-width:42px;text-align:center;">{{ posLabel }}</span>
+            <button onClick="{{ onNext }}" style="{{ nextStyle }}" style-hover="background:#f4f4f1" title="Следующая">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg>
+            </button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+          <h1 style="margin:0;font-size:21px;font-weight:660;letter-spacing:-.4px;line-height:1.2;min-width:0;">{{ cur.name }}</h1>
+          <span style="{{ cur.reviewBadge }}">{{ cur.reviewLabel }}</span>
+        </div>
+
+        <div style="margin-top:14px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+          <span style="font-size:11px;color:#a3a29b;margin-right:2px;">статус:</span>
+          <sc-for list="{{ statusOptions }}" as="opt" hint-placeholder-count="4">
+            <button onClick="{{ opt.onClick }}" style="{{ opt.style }}">
+              <span style="{{ opt.dot }}"></span>{{ opt.label }}
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="{{ editorScroll }}">
+
+        <sc-if value="{{ cur.showEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="border:1px dashed #ddddd6;border-radius:10px;background:#fafaf8;padding:18px;display:flex;align-items:center;gap:14px;">
+            <span style="width:38px;height:38px;border-radius:9px;background:{{ accentSoft }};color:{{ accent }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h9M9 5l3 3-3 3"/></svg>
+            </span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;font-size:13.5px;margin-bottom:2px;">Нет данных по теме</div>
+              <div style="font-size:12px;color:#6f6e68;">Наговорите тему в ChatGPT и импортируйте результат — или заполните вручную.</div>
+            </div>
+            <button onClick="{{ onImport }}" style="{{ accentBtn }}flex-shrink:0;" style-hover="filter:brightness(.95)">Импорт результата</button>
+          </div>
+        </sc-if>
+
+        <!-- goes to sheet -->
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <div style="display:flex;align-items:center;gap:9px;">
+            <span style="font-size:11px;font-weight:650;letter-spacing:.5px;text-transform:uppercase;color:{{ accent }};">Уйдёт в «Активные»</span>
+            <span style="flex:1;height:1px;background:{{ accentBorder }};"></span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:7px;">
+            <label style="{{ fieldLbl }}">Итоговая формулировка</label>
+            <textarea onChange="{{ onSummary }}" value="{{ cur.summary }}" placeholder="Одно–два предложения: что по итогу недели." style="{{ taHero }}" style-focus="{{ taFocusHero }}"></textarea>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:7px;">
+            <div style="display:flex;align-items:baseline;gap:9px;">
+              <label style="{{ fieldLbl }}">Все вехи</label>
+              <span style="font-size:11px;color:#a3a29b;">когда докатимся и куда</span>
+            </div>
+            <textarea onChange="{{ onMilestones }}" value="{{ cur.milestones }}" placeholder="Веха — срок" style="{{ taPlain }}min-height:92px;font-variant-numeric:tabular-nums;" style-focus="{{ taFocus }}"></textarea>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <label style="{{ fieldLbl }}">Мяч</label>
+              <input onChange="{{ onBall }}" value="{{ cur.ball }}" placeholder="На чьей стороне ход" style="{{ inpStyle }}" style-focus="{{ inpFocus }}" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <label style="{{ fieldLbl }}">Вопрос к Евгению</label>
+              <input onChange="{{ onQuestion }}" value="{{ cur.question }}" placeholder="Что нужно решить" style="{{ inpStyle }}" style-focus="{{ inpFocus }}" />
+            </div>
+          </div>
+        </div>
+
+        <!-- sources collapsed -->
+        <div style="border:1px solid #eeeeea;border-radius:9px;overflow:hidden;">
+          <button onClick="{{ toggleFacts }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:11px 13px;font-size:12.5px;font-weight:550;color:#6f6e68;" style-hover="background:#fafaf8">
+            <span>Исходные данные <span style="color:#a3a29b;font-weight:400;">— для сверки</span></span>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="{{ factsChevron }}"><path d="M4 6l4 4 4-4"/></svg>
+          </button>
+          <sc-if value="{{ factsOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:0 13px 13px;display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <label style="{{ fieldLbl }}">Сырой ввод</label>
+                <textarea onChange="{{ onRaw }}" value="{{ cur.raw }}" placeholder="Как наговорено — без формулировок." style="{{ taSubtle }}" style-focus="{{ taFocus }}"></textarea>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <label style="{{ fieldLbl }}">Факты этой недели</label>
+                <textarea onChange="{{ onFacts }}" value="{{ cur.facts }}" placeholder="Опорные факты, цифры, источники." style="{{ taSubtle }}min-height:54px;" style-focus="{{ taFocus }}"></textarea>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+      </div>
+
+      <div style="padding:11px 26px;border-top:1px solid #eeeeea;background:#fcfcfb;flex-shrink:0;display:flex;align-items:center;gap:9px;">
+        <button onClick="{{ onSave }}" style="{{ saveBtnStyle }}" style-hover="background:#f4f4f1;border-color:#dcdcd6">Сохранить</button>
+        <span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:{{ saveColor }};">
+          <span style="width:6px;height:6px;border-radius:50%;background:{{ saveColor }};"></span>{{ saveHint }}
+        </span>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:9px;">
+          <button onClick="{{ onToggleReviewed }}" style="{{ reviewBtnStyle }}" style-hover="{{ reviewBtnHover }}">{{ reviewBtnLabel }}</button>
+          <button onClick="{{ onNext }}" style="{{ nextBtnStyle }}" style-hover="filter:brightness(.95)">
+            Следующая тема
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h9M9 5l3 3-3 3"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- RIGHT: verification context -->
+    <aside style="{{ rightStyle }}">
+      <div style="{{ rightScroll }}">
+
+        <div>
+          <div style="{{ ctxLbl }}">Прошлая неделя</div>
+          <div style="border:1px solid #eeeeea;border-radius:9px;padding:12px 13px;background:#fafaf8;font-size:12.5px;color:#4a4944;line-height:1.55;">{{ cur.lastWeek }}</div>
+        </div>
+
+        <div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px;">
+            <div style="{{ ctxLbl }}margin:0;">Вехи · контекст</div>
+            <span style="font-size:10.5px;color:#b4b3ab;">read-only</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <sc-for list="{{ cur.contextMilestones }}" as="m" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #eeeeea;border-radius:8px;padding:9px 11px;">
+                <span style="font-size:12.5px;color:#4a4944;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ m.t }}</span>
+                <span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;color:{{ m.color }};white-space:nowrap;flex-shrink:0;">
+                  <span style="width:6px;height:6px;border-radius:50%;background:{{ m.color }};"></span>{{ m.d }}
+                </span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="border:1px solid #eeeeea;border-radius:10px;overflow:hidden;">
+          <button onClick="{{ toggleSettings }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:11px 13px;font-size:12.5px;font-weight:550;color:#6f6e68;" style-hover="background:#fafaf8">
+            <span style="display:inline-flex;align-items:center;gap:8px;">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>
+              Настройки строки
+            </span>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="{{ settingsChevron }}"><path d="M4 6l4 4 4-4"/></svg>
+          </button>
+          <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:0 13px 13px;display:flex;flex-direction:column;gap:11px;">
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                <label style="{{ fieldLbl }}">Название</label>
+                <input onChange="{{ onName }}" value="{{ cur.name }}" style="{{ inpStyle }}" style-focus="{{ inpFocus }}" />
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div style="display:flex;flex-direction:column;gap:5px;">
+                  <label style="{{ fieldLbl }}">Тип</label>
+                  <input value="{{ cur.movementType }}" readonly style="{{ inpStyle }}background:#fafaf8;color:#9c9b93;" />
+                </div>
+                <div style="display:flex;flex-direction:column;gap:5px;">
+                  <label style="{{ fieldLbl }}">Focus</label>
+                  <input onChange="{{ onFocus }}" value="{{ cur.focus }}" style="{{ inpStyle }}" style-focus="{{ inpFocus }}" />
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                <label style="{{ fieldLbl }}">Дата постановки</label>
+                <input onChange="{{ onSetDate }}" value="{{ cur.setDate }}" style="{{ inpStyle }}max-width:170px;" style-focus="{{ inpFocus }}" />
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+      </div>
+    </aside>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:860},&quot;accentColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#3a5bd0&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;weekPeriod&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;9–15 июня 2026&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;sourceLabel&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Активные&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = {
+    currentId: 'T-001',
+    settingsOpen: false,
+    factsOpen: false,
+    finalOpen: false,
+    leftCollapsed: false,
+    query: '',
+    vw: (typeof window !== 'undefined' ? window.innerWidth : 1440),
+    topics: [
+      { id:'T-001', name:'Найм Senior Backend', section:'Команда', rowNumber:7, status:'result', imported:true, manual:true, reviewed:false,
+        movementType:'hire', focus:'Q2 · скорость найма', setDate:'02.06.2026',
+        raw:'Закрыли 2 финальных интервью, оффер кандидату A отправлен, ждём ответ до пятницы.',
+        summary:'Оффер Senior Backend отправлен кандидату A, дедлайн ответа — пятница. Кандидат B на паузе как запасной.',
+        milestones:'Оффер принят — до 20 июня\nВыход на работу — 1 июля\nОнбординг закрыт — к 15 июля',
+        ball:'Кандидат A — ждём решение',
+        question:'Готовы поднять вилку на 10%, если A откажется?',
+        facts:'A: 6 лет Go, ex-крупный маркетплейс. B: сильнее по системному дизайну, дороже на 15%.',
+        lastWeek:'Назначили финальные интервью на эту неделю, вилку согласовали с финансами.',
+        contextMilestones:[{t:'Закрыть вакансию', d:'15 июня', late:true},{t:'Выход кандидата', d:'1 июля', late:false}] },
+
+      { id:'T-002', name:'Релиз биллинга v2', section:'Продукт', rowNumber:8, status:'process', imported:true, manual:false, reviewed:true,
+        movementType:'ship', focus:'Q2 · монетизация', setDate:'19.05.2026',
+        raw:'Биллинг v2 на staging, гоняем прокси-платежи. Всплыли проблемы с вебхуками провайдера.',
+        summary:'Биллинг v2 на staging; прод-релиз сдвинут на неделю из-за нестабильных вебхуков платёжного провайдера.',
+        milestones:'Фикс вебхуков — 18 июня\nПрод-релиз — 25 июня\nМиграция тарифов — 2 июля',
+        ball:'Команда — чиним вебхуки',
+        question:'',
+        facts:'2 из 5 вебхуков теряются под нагрузкой. Провайдер обещал патч к среде.',
+        lastWeek:'Закрыли интеграцию апи провайдера, начали нагрузочное тестирование.',
+        contextMilestones:[{t:'Прод-релиз', d:'18 июня', late:true},{t:'Миграция тарифов', d:'2 июля', late:false}] },
+
+      { id:'T-003', name:'Договор с поставщиком API', section:'Партнёрства', rowNumber:9, status:'question', imported:true, manual:true, reviewed:false,
+        movementType:'partner', focus:'Q2 · поставщики', setDate:'26.05.2026',
+        raw:'Юристы прислали правки, поставщик не согласен с SLA 99.9%. Висит на согласовании.',
+        summary:'Договор завис на пункте SLA: поставщик готов только на 99.5%. Нужно решение по уровню гарантий.',
+        milestones:'Согласовать SLA — 17 июня\nПодписание — 24 июня',
+        ball:'Евгений — решение по SLA',
+        question:'Принимаем 99.5% или ищем второго поставщика для резерва?',
+        facts:'Второй поставщик дороже на 20%, но даёт 99.9%. Текущий — единственный с нужным регионом.',
+        lastWeek:'Получили первую версию договора, отдали юристам на ревью.',
+        contextMilestones:[{t:'Согласовать SLA', d:'17 июня', late:false},{t:'Подписание', d:'24 июня', late:false}] },
+
+      { id:'T-004', name:'Найм Head of Sales', section:'Команда', rowNumber:10, status:'untouched', imported:false, manual:false, reviewed:false,
+        movementType:'hire', focus:'Q3 · продажи', setDate:'09.06.2026',
+        raw:'', summary:'', milestones:'', ball:'', question:'', facts:'',
+        lastWeek:'Открыли вакансию, согласовали профиль кандидата с командой.',
+        contextMilestones:[{t:'Первые скрининги', d:'30 июня', late:false}] },
+
+      { id:'T-005', name:'Перенос инфры в новый регион', section:'Инфраструктура', rowNumber:11, status:'process', imported:true, manual:false, reviewed:true,
+        movementType:'infra', focus:'Q2 · надёжность', setDate:'12.05.2026',
+        raw:'Подняли кластер в новом регионе, переносим стейтфул-сервисы. БД пока на старом.',
+        summary:'Stateless-сервисы уже в новом регионе, идёт перенос БД. Плановое окно простоя — ночь субботы.',
+        milestones:'Перенос БД — 21 июня\nПереключение трафика — 23 июня',
+        ball:'Команда — перенос БД',
+        question:'',
+        facts:'Объём БД 1.2 ТБ, расчётное окно репликации ~6 часов.',
+        lastWeek:'Развернули новый кластер, прогнали смоук-тесты на stateless-части.',
+        contextMilestones:[{t:'Перенос БД', d:'21 июня', late:false},{t:'Переключение', d:'23 июня', late:false}] },
+
+      { id:'T-006', name:'Юнит-экономика онбординга', section:'Финансы', rowNumber:12, status:'untouched', imported:false, manual:false, reviewed:false,
+        movementType:'analysis', focus:'Q2 · экономика', setDate:'09.06.2026',
+        raw:'', summary:'', milestones:'', ball:'', question:'', facts:'',
+        lastWeek:'Собрали данные по когортам за май, ждём выгрузку по платным конверсиям.',
+        contextMilestones:[{t:'Модель готова', d:'28 июня', late:false}] },
+
+      { id:'T-007', name:'Roadmap Q3', section:'Продукт', rowNumber:13, status:'result', imported:true, manual:true, reviewed:true,
+        movementType:'plan', focus:'Q3 · планирование', setDate:'02.06.2026',
+        raw:'Свели приоритеты с командами, защитили роадмап на синке. Зафиксировали 3 крупные ставки.',
+        summary:'Roadmap Q3 утверждён: 3 крупные ставки (биллинг, мобайл, аналитика), остальное — в бэклоге.',
+        milestones:'Декомпозиция — 20 июня\nСтарт спринтов Q3 — 1 июля',
+        ball:'Команды — декомпозиция',
+        question:'',
+        facts:'Мобайл требует +1 инженера, иначе сдвиг на 2 недели.',
+        lastWeek:'Собрали черновик приоритетов, разослали командам на ревью.',
+        contextMilestones:[{t:'Декомпозиция', d:'20 июня', late:false},{t:'Старт Q3', d:'1 июля', late:false}] },
+    ],
+  };
+
+  componentDidMount() {
+    this._onResize = () => this.setState({ vw: window.innerWidth });
+    window.addEventListener('resize', this._onResize);
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this._onResize); }
+
+  selectTopic(id) { this.setState({ currentId: id, finalOpen: false }); }
+  patch(id, ch) { this.setState(s => ({ topics: s.topics.map(t => t.id === id ? { ...t, ...ch } : t) })); }
+  field(name, v) { this.patch(this.state.currentId, { [name]: v, manual: true, reviewed: false }); }
+  setStatus(st) { this.patch(this.state.currentId, { status: st, manual: true, reviewed: false }); }
+  addRow() {
+    const n = this.state.topics.length + 1;
+    const id = 'T-' + String(n).padStart(3, '0');
+    const nt = { id, name:'Новая тема', section:'—', rowNumber: 6 + n, status:'untouched', imported:false, manual:false, reviewed:false,
+      movementType:'', focus:'', setDate:'', raw:'', summary:'', milestones:'', ball:'', question:'', facts:'',
+      lastWeek:'—', contextMilestones:[] };
+    this.setState(s => ({ topics:[...s.topics, nt], currentId:id }));
+  }
+
+  renderVals() {
+    const accent = this.props.accentColor || '#3a5bd0';
+    const accentSoft = accent + '14';
+    const accentBorder = accent + '33';
+    const topics = this.state.topics;
+    const cur = topics.find(t => t.id === this.state.currentId) || topics[0];
+    const vw = this.state.vw;
+    const narrow = vw < 980;
+    const tight = vw < 1180;
+    const collapsed = this.state.leftCollapsed && !narrow;
+    const q = (this.state.query || '').trim().toLowerCase();
+
+    const filledOf = t => !!(t.summary && t.summary.trim());
+    const hasQ = t => !!(t.question && t.question.trim());
+    const total = topics.length;
+    const filled = topics.filter(filledOf).length;
+    const reviewed = topics.filter(t => t.reviewed && filledOf(t)).length;
+    const pending = filled - reviewed;
+    const empties = total - filled;
+    const pct = filled ? Math.round(reviewed / filled * 100) : 0;
+    const allReady = filled > 0 && reviewed === filled;
+
+    const statusMeta = {
+      result:    { label:'Результат', color:'#2e8b57', bg:'#e8f3ec', bd:'#bfe0cd' },
+      process:   { label:'Процесс',   color:accent,    bg:accentSoft, bd:accentBorder },
+      question:  { label:'Вопрос',    color:'#b07a1e', bg:'#fbf3e1', bd:'#ecd9ab' },
+      untouched: { label:'Не трогал', color:'#9c9b93', bg:'#f2f2ee', bd:'#e2e2dc' },
+    };
+
+    const fieldLbl = 'font-size:11px;font-weight:650;letter-spacing:.3px;color:#56554f;';
+    const ctxLbl = 'font-size:11px;font-weight:650;letter-spacing:.6px;text-transform:uppercase;color:#9c9b93;margin:0 0 9px;';
+    const taBase = 'width:100%;border:1px solid #e3e3dd;border-radius:9px;padding:11px 13px;font-size:13px;line-height:1.55;outline:none;color:#25241f;transition:border-color .12s,box-shadow .12s,background .12s;';
+    const taSubtle = taBase + 'min-height:60px;background:#fafaf8;';
+    const taPlain = taBase + 'background:#fff;';
+    const taHero = taBase + 'min-height:80px;background:#fff;font-size:14px;border-color:' + accentBorder + ';';
+    const taFocus = 'border-color:' + accent + ';background:#fff;box-shadow:0 0 0 3px ' + accentSoft + ';';
+    const taFocusHero = 'border-color:' + accent + ';box-shadow:0 0 0 3px ' + accentSoft + ';';
+    const inpStyle = 'width:100%;border:1px solid #e3e3dd;border-radius:9px;padding:9px 12px;font-size:13px;outline:none;background:#fff;color:#25241f;transition:border-color .12s,box-shadow .12s;';
+    const inpFocus = 'border-color:' + accent + ';box-shadow:0 0 0 3px ' + accentSoft + ';';
+
+    const btnLabel = tight ? 'display:none;' : '';
+    const iconBtn = 'display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 ' + (tight ? '9px' : '13px') + ';border-radius:8px;border:1px solid #e7e7e3;background:#fff;color:#3a3934;font-size:12.5px;font-weight:550;transition:background .12s,border-color .12s;';
+    const accentBtn = 'display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 14px;border-radius:8px;border:1px solid ' + accent + ';background:' + accent + ';color:#fff;font-size:12.5px;font-weight:600;transition:filter .12s;';
+    const ghostBtn = 'display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 13px;border-radius:8px;border:1px solid #e7e7e3;background:#fff;color:#3a3934;font-size:12.5px;font-weight:550;transition:background .12s,border-color .12s;';
+    const subtleBtn = 'display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 10px;border-radius:7px;border:1px solid #e7e7e3;background:#fff;color:#56554f;font-size:12px;font-weight:550;transition:background .12s;';
+    const warnBtn = 'display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:8px;border:1px solid #e3cd92;background:#fdf7e8;color:#9a6912;font-size:12.5px;font-weight:600;transition:background .12s;';
+    const warnSolid = 'display:inline-flex;align-items:center;justify-content:center;gap:7px;height:36px;padding:0 14px;border-radius:8px;border:1px solid #b07a1e;background:#b07a1e;color:#fff;font-size:12.5px;font-weight:600;transition:filter .12s;';
+
+    // topic rows + rail
+    const visible = topics.filter(t => !q || t.name.toLowerCase().includes(q) || t.id.toLowerCase().includes(q) || t.section.toLowerCase().includes(q));
+    const topicViews = visible.map(t => {
+      const fl = filledOf(t);
+      const m = statusMeta[t.status] || statusMeta.untouched;
+      const isCur = t.id === cur.id;
+      const base = 'display:flex;gap:11px;align-items:center;width:100%;padding:10px 11px;border-radius:9px;cursor:pointer;transition:background .12s,border-color .12s;';
+      const dotBg = t.reviewed && fl ? '#2e8b57' : (fl ? m.color : 'transparent');
+      const dotBd = t.reviewed && fl ? '#2e8b57' : (fl ? m.color : '#d2d1ca');
+      return {
+        id: t.id, num: t.id.replace('T-', ''), name: t.name, section: t.section,
+        isCur, imported: t.imported, manual: t.manual, reviewed: t.reviewed && fl, hasQuestion: hasQ(t),
+        idColor: isCur ? accent : '#a3a29b',
+        nameColor: fl ? '#25241f' : '#a3a29b',
+        dotStyle: 'width:9px;height:9px;border-radius:50%;flex-shrink:0;background:' + dotBg + ';border:2px solid ' + dotBd + ';',
+        rowStyle: base + (isCur ? 'border:1px solid ' + accentBorder + ';background:' + accentSoft + ';' : 'border:1px solid transparent;background:#fff;'),
+        hoverStyle: isCur ? 'background:' + accent + '1f;' : 'background:#f6f6f3;',
+        railItem: 'width:42px;height:42px;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:background .12s;' + (isCur ? 'background:' + accentSoft + ';border:1px solid ' + accentBorder + ';' : 'border:1px solid transparent;'),
+        railHover: isCur ? 'background:' + accent + '1f;' : 'background:#f4f4f1;',
+        railDot: 'width:8px;height:8px;border-radius:50%;background:' + dotBg + ';border:1.5px solid ' + dotBd + ';',
+        onSelect: () => this.selectTopic(t.id),
+      };
+    });
+
+    const statusOptions = ['result','process','question','untouched'].map(k => {
+      const m = statusMeta[k];
+      const active = cur.status === k;
+      return {
+        key: k, label: m.label,
+        onClick: () => this.setStatus(k),
+        dot: 'width:7px;height:7px;border-radius:50%;background:' + m.color + ';' + (active ? '' : 'opacity:.55;'),
+        style: 'display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:7px;font-size:12px;font-weight:600;transition:all .12s;' + (active
+          ? 'border:1px solid ' + m.bd + ';background:' + m.bg + ';color:' + m.color + ';'
+          : 'border:1px solid #e7e7e3;background:#fff;color:#8a8980;'),
+      };
+    });
+
+    // navigation
+    const order = topicViews.map(v => v.id);
+    const idx = order.indexOf(cur.id);
+    const canPrev = idx > 0;
+    const canNext = idx >= 0 && idx < order.length - 1;
+    const navBtn = 'width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;transition:background .12s;';
+    const prevStyle = navBtn + (canPrev ? 'color:#56554f;' : 'color:#d2d1ca;pointer-events:none;');
+    const nextStyle = navBtn + (canNext ? 'color:#56554f;' : 'color:#d2d1ca;pointer-events:none;');
+    const goPrev = () => { if (canPrev) this.selectTopic(order[idx - 1]); };
+    const goNext = () => { if (canNext) this.selectTopic(order[idx + 1]); };
+
+    const filledNow = filledOf(cur);
+    const cm = (cur.contextMilestones || []).map(x => ({ t: x.t, d: x.d + (x.late ? ' · просрочено' : ''), color: x.late ? '#c0392b' : '#8a8980' }));
+
+    // review badge for current
+    let reviewLabel, reviewBadge;
+    if (!filledNow) { reviewLabel = 'Нет данных'; reviewBadge = 'background:#f2f2ee;color:#a3a29b;'; }
+    else if (cur.reviewed) { reviewLabel = '✓ Проверено'; reviewBadge = 'background:#e8f3ec;color:#2e8b57;'; }
+    else { reviewLabel = 'Ждёт проверки'; reviewBadge = 'background:#fbf3e1;color:#b07a1e;'; }
+    reviewBadge = 'flex-shrink:0;display:inline-flex;align-items:center;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:600;' + reviewBadge;
+
+    // review toggle button
+    let reviewBtnLabel, reviewBtnStyle, reviewBtnHover;
+    const rbBase = 'display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:8px;font-size:12.5px;font-weight:600;transition:all .12s;';
+    if (!filledNow) { reviewBtnLabel = 'Отметить проверенной'; reviewBtnStyle = rbBase + 'border:1px solid #e7e7e3;background:#fff;color:#c8c7c0;pointer-events:none;'; reviewBtnHover = ''; }
+    else if (cur.reviewed) { reviewBtnLabel = '✓ Проверено'; reviewBtnStyle = rbBase + 'border:1px solid #bfe0cd;background:#e8f3ec;color:#2e8b57;'; reviewBtnHover = 'background:#ddeee2'; }
+    else { reviewBtnLabel = 'Отметить проверенной'; reviewBtnStyle = rbBase + 'border:1px solid #2e8b57;background:#2e8b57;color:#fff;'; reviewBtnHover = 'filter:brightness(.96)'; }
+
+    const panel = 'background:#fff;border:1px solid #e7e7e3;border-radius:12px;display:flex;flex-direction:column;min-height:0;';
+    const narrowPanel = 'width:100%;flex:none;flex-shrink:0;min-height:auto;';
+    const mainStyle = 'flex:1;display:flex;gap:16px;padding:16px;min-height:0;' + (narrow ? 'flex-direction:column;overflow-y:auto;' : 'overflow:hidden;');
+    const leftStyle = panel + (narrow ? narrowPanel : 'width:300px;flex:none;overflow:hidden;');
+    const railStyle = panel + 'width:56px;flex:none;overflow:hidden;align-items:stretch;';
+    const centerStyle = panel + (narrow ? narrowPanel + 'min-height:560px;' : 'flex:1;min-width:0;overflow:hidden;');
+    const rightStyle = panel + (narrow ? narrowPanel : 'width:336px;flex:none;overflow:hidden;');
+    const scrollBody = narrow ? '' : 'flex:1;min-height:0;overflow-y:auto;';
+
+    return {
+      accent, accentSoft, accentBorder,
+      weekPeriod: this.props.weekPeriod || '9–15 июня 2026',
+      sourceLabel: this.props.sourceLabel || 'Активные',
+      logoStyle: 'width:30px;height:30px;border-radius:8px;background:' + accent + ';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0;',
+
+      total, filled, reviewed, pending, empties,
+      barStyle: 'height:100%;width:' + pct + '%;border-radius:6px;background:' + (allReady ? '#2e8b57' : accent) + ';transition:width .25s ease,background .25s;',
+      progressWrap: 'flex:0 1 220px;min-width:150px;' + (tight ? 'display:none;' : ''),
+
+      leftCollapsed: collapsed,
+      leftExpanded: !collapsed,
+      topicViews, statusOptions,
+      query: this.state.query,
+      posLabel: idx >= 0 ? (idx + 1) + ' / ' + order.length : '—',
+      prevStyle, nextStyle,
+
+      readyText: allReady ? 'Все темы проверены — можно записывать.' : pending + ' тем ещё не проверено. Запись доступна, но лучше проверить все.',
+      readyNote: 'margin:0 0 11px;font-size:12px;line-height:1.5;padding:8px 10px;border-radius:7px;' + (allReady ? 'background:#e8f3ec;color:#2e7a4e;' : 'background:#fbf3e1;color:#8a6314;'),
+
+      cur: {
+        ...cur,
+        contextMilestones: cm,
+        showEmpty: !filledNow && !(cur.raw && cur.raw.trim()),
+        reviewLabel, reviewBadge,
+      },
+
+      fieldLbl, ctxLbl, taSubtle, taPlain, taHero, taFocus, taFocusHero, inpStyle, inpFocus,
+      iconBtn, accentBtn, ghostBtn, subtleBtn, warnBtn, warnSolid, btnLabel,
+      reviewBtnLabel, reviewBtnStyle, reviewBtnHover,
+      nextBtnStyle: accentBtn + (canNext ? '' : 'opacity:.45;pointer-events:none;'),
+      saveBtnStyle: subtleBtn + 'height:34px;padding:0 14px;' + (cur.manual ? 'border-color:#dcdcd6;color:#3a3934;' : 'opacity:.5;pointer-events:none;'),
+      mainStyle, leftStyle, railStyle, centerStyle, rightStyle,
+      railTop: 'height:46px;flex-shrink:0;border-bottom:1px solid #eeeeea;display:flex;align-items:center;justify-content:center;color:#9c9b93;',
+      queueScroll: scrollBody + 'padding:8px;display:flex;flex-direction:column;gap:3px;',
+      editorScroll: scrollBody + 'padding:20px 26px 24px;display:flex;flex-direction:column;gap:20px;',
+      rightScroll: scrollBody + 'padding:16px;display:flex;flex-direction:column;gap:16px;',
+
+      settingsOpen: this.state.settingsOpen,
+      factsOpen: this.state.factsOpen,
+      finalOpen: this.state.finalOpen,
+      settingsChevron: 'transition:transform .15s;transform:rotate(' + (this.state.settingsOpen ? '180' : '0') + 'deg);',
+      factsChevron: 'transition:transform .15s;transform:rotate(' + (this.state.factsOpen ? '180' : '0') + 'deg);',
+      caretStyle: 'transition:transform .15s;transform:rotate(' + (this.state.finalOpen ? '180' : '0') + 'deg);',
+      saveHint: cur.manual ? 'Есть несохранённые правки' : 'Сохранено',
+      saveColor: cur.manual ? '#b07a1e' : '#2e8b57',
+
+      onDownloadContext: () => {}, onImport: () => {}, onExport: () => {},
+      onToggleFinal: () => this.setState(s => ({ finalOpen: !s.finalOpen })),
+      onWriteActive: () => this.setState({ finalOpen: false }),
+      onStartWeek: () => this.setState({ finalOpen: false }),
+      onArchive: () => this.setState({ finalOpen: false }),
+      onToggleLeft: () => this.setState(s => ({ leftCollapsed: !s.leftCollapsed })),
+      onSearch: e => this.setState({ query: e.target.value }),
+      onSave: () => this.patch(this.state.currentId, { manual: false }),
+      onToggleReviewed: () => this.patch(this.state.currentId, { reviewed: !cur.reviewed }),
+      onPrev: goPrev, onNext: goNext, onAddRow: () => this.addRow(),
+      toggleSettings: () => this.setState(s => ({ settingsOpen: !s.settingsOpen })),
+      toggleFacts: () => this.setState(s => ({ factsOpen: !s.factsOpen })),
+      onRaw: e => this.field('raw', e.target.value),
+      onSummary: e => this.field('summary', e.target.value),
+      onMilestones: e => this.field('milestones', e.target.value),
+      onBall: e => this.field('ball', e.target.value),
+      onQuestion: e => this.field('question', e.target.value),
+      onFacts: e => this.field('facts', e.target.value),
+      onName: e => this.field('name', e.target.value),
+      onFocus: e => this.field('focus', e.target.value),
+      onSetDate: e => this.field('setDate', e.target.value),
+    };
+  }
+}
+</script>
+</body>
+</html>

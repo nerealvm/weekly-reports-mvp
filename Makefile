@@ -2,9 +2,11 @@ PYTHONPATH := src
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 SAMPLE := tests/fixtures/weekly_mvp_sample.csv
 WEEK_START ?= 2026-05-01
-WEEK_END ?= 2026-05-07
+WEEK_END ?= 2026-05-08
 COLLECTOR_PORT ?= 8765
 VIEWER_PORT ?= 8770
+COLLECTOR_GID ?= 0
+COLLECTOR_SHEET_NAME ?= Активные
 COLLECTOR_REFRESH ?=
 TRANSFER_APPLY ?=
 TRANSFER_WEEK_LABEL ?=
@@ -40,7 +42,7 @@ singularity-context:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m weekly_assistant.cli singularity-weekly-context --week-start $(WEEK_START) --week-end $(WEEK_END) --out /tmp/weekly-live-test/singularity_context.md
 
 collector:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m weekly_assistant.collector_server --week-start $(WEEK_START) --week-end $(WEEK_END) --port $(COLLECTOR_PORT) $(COLLECTOR_REFRESH)
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m weekly_assistant.collector_server --week-start $(WEEK_START) --week-end $(WEEK_END) --port $(COLLECTOR_PORT) --gid $(COLLECTOR_GID) --sheet-name "$(COLLECTOR_SHEET_NAME)" $(COLLECTOR_REFRESH)
 
 viewer:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m weekly_assistant.viewer_server --port $(VIEWER_PORT)

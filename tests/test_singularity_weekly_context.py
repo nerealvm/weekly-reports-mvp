@@ -33,6 +33,12 @@ class FakeSingularityAdapter:
                         "title": "Open task",
                         "start": "2026-05-08T00:00:00.000Z",
                     },
+                    {
+                        "id": "T-3",
+                        "title": "Next boundary task",
+                        "checked": 1,
+                        "modificated": {"checked": 1778198400000},
+                    },
                 ]
             }
         return {"tasks": []}
@@ -53,7 +59,7 @@ class SingularityWeeklyContextTest(unittest.TestCase):
                 FakeSingularityAdapter(),
                 config_path=config,
                 week_start=date(2026, 5, 1),
-                week_end=date(2026, 5, 7),
+                week_end=date(2026, 5, 8),
             )
 
         self.assertEqual(len(context.matched_projects), 1)
@@ -73,7 +79,7 @@ class SingularityWeeklyContextTest(unittest.TestCase):
                 FakeSingularityAdapter(),
                 config_path=config,
                 week_start=date(2026, 5, 1),
-                week_end=date(2026, 5, 7),
+                week_end=date(2026, 5, 8),
             )
 
         text = format_singularity_weekly_context(context)

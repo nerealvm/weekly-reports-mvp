@@ -26,8 +26,8 @@ def load_settings(env_file: str | Path = ".env") -> Settings:
     env = _merged_env(env_file)
     return Settings(
         google_sheets_spreadsheet_id=env.get("GOOGLE_SHEETS_SPREADSHEET_ID", ""),
-        google_sheets_weekly_gid=env.get("GOOGLE_SHEETS_WEEKLY_GID", "20260508"),
-        google_sheets_weekly_sheet_name=env.get("GOOGLE_SHEETS_WEEKLY_SHEET_NAME", "Weekly MVP 2026-05-08"),
+        google_sheets_weekly_gid=env.get("GOOGLE_SHEETS_WEEKLY_GID", "0"),
+        google_sheets_weekly_sheet_name=env.get("GOOGLE_SHEETS_WEEKLY_SHEET_NAME", "Активные"),
         google_oauth_access_token=env.get("GOOGLE_OAUTH_ACCESS_TOKEN", ""),
         google_application_credentials=env.get("GOOGLE_APPLICATION_CREDENTIALS", ""),
         telegram_bot_token=env.get("TELEGRAM_BOT_TOKEN", ""),

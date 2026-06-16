@@ -47,6 +47,12 @@ make transfer-active TRANSFER_WEEK_LABEL=8.05
 make transfer-active TRANSFER_WEEK_LABEL=8.05 TRANSFER_APPLY=--apply
 ```
 
+Чтобы создать недостающие недельные колонки и добавить в `Активные` новые темы без `Legacy row`:
+
+```bash
+make transfer-active TRANSFER_WEEK_LABEL=15.05 TRANSFER_ARGS="--ensure-week-columns --create-missing-legacy-rows" TRANSFER_APPLY=--apply
+```
+
 ## Ручные overrides
 
 Если автоопределение колонок ошиблось:
@@ -68,6 +74,8 @@ make transfer-active TRANSFER_ARGS="--include-open-questions --question-col AQ" 
 ## Защита
 
 - Без `--apply` запись не выполняется.
+- `--ensure-week-columns` добавляет по одной колонке в группы `Куда мы докатились на этой` и `Когда докатимся и куда`, если даты еще нет.
+- `--create-missing-legacy-rows` добавляет active-строки без `Legacy row` в `Активные` и записывает номер созданной строки обратно в MVP-вкладку.
 - Скрипт не чистит пустые значения в старой вкладке.
 - Если в weekly-строке нет значения для поля, это поле не записывается.
 - Переносятся только строки с `Lifecycle = active`.
