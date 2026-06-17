@@ -20,6 +20,7 @@ SERVICE_FIELD_HEADERS = (
     ("movement_type", HEADERS["movement_type"]),
     ("needs_sync", HEADERS["needs_sync"]),
     ("sync_reason", HEADERS["sync_reason"]),
+    ("topic_id", HEADERS["topic_id"]),
 )
 
 
@@ -44,6 +45,7 @@ class ActiveSheetColumns:
     movement_col: int | None = None
     needs_sync_col: int | None = None
     sync_reason_col: int | None = None
+    topic_id_col: int | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -60,6 +62,7 @@ class ActiveSheetColumns:
             "movement_col": self.movement_col,
             "needs_sync_col": self.needs_sync_col,
             "sync_reason_col": self.sync_reason_col,
+            "topic_id_col": self.topic_id_col,
         }
 
 
@@ -90,8 +93,10 @@ def build_active_session_rows_from_csv(path: str | Path, *, week_label: str) -> 
     columns = resolve_active_sheet_columns(header_values, week_label=week_label)
     session_rows: list[dict] = []
     raw_rows: list[dict] = []
-    current_section = ""
 
+    # first pass: collect topic rows so persisted Topic IDs anchor the mapping
+    topic_rows: list[tuple[int, list[str], str]] = []
+    current_section = ""
     for row_number, row in enumerate(rows[2:], start=3):
         section_cell = _cell(row, 1)
         topic_title = _cell(row, columns.topic_col)
@@ -99,9 +104,19 @@ def build_active_session_rows_from_csv(path: str | Path, *, week_label: str) -> 
             if section_cell:
                 current_section = section_cell
             continue
+        topic_rows.append((row_number, row, current_section or "Проекты"))
+    next_topic_number = _next_topic_number(topic_rows, columns)
 
-        section = current_section or "Проекты"
-        topic_id = f"T-{len(session_rows) + 1:03d}"
+    for row_number, row, section in topic_rows:
+        topic_title = _cell(row, columns.topic_col)
+        existing_id = _cell(row, columns.topic_id_col)
+        if existing_id:
+            topic_id = existing_id
+            topic_id_persisted = True
+        else:
+            topic_id = f"T-{next_topic_number:03d}"
+            next_topic_number += 1
+            topic_id_persisted = False
         previous_result = _first_non_empty(
             _cell(row, columns.previous_status_col),
             _cell(row, columns.previous_result_source_col),
@@ -125,6 +140,7 @@ def build_active_session_rows_from_csv(path: str | Path, *, week_label: str) -> 
         row_model = {
             "row_number": row_number,
             "topic_id": topic_id,
+            "topic_id_persisted": topic_id_persisted,
             "topic_title": topic_title,
             "section": section,
             "date_created": _cell(row, columns.date_created_col),
@@ -168,6 +184,15 @@ def build_active_session_rows_from_csv(path: str | Path, *, week_label: str) -> 
     return session_rows, raw_rows, metadata
 
 
+def _next_topic_number(topic_rows: list[tuple[int, list[str], str]], columns: "ActiveSheetColumns") -> int:
+    max_number = 0
+    for _row_number, row, _section in topic_rows:
+        match = re.match(r"[Tt]-?(\d+)", _cell(row, columns.topic_id_col))
+        if match:
+            max_number = max(max_number, int(match.group(1)))
+    return max_number + 1
+
+
 def row_to_normalized_raw(row: dict) -> dict:
     raw = {header: "" for header in HEADERS.values()}
     raw["_row_number"] = row["row_number"]
@@ -196,6 +221,7 @@ def resolve_active_sheet_columns(header_values: list[list[str]], *, week_label: 
         movement_col=_find_optional_header_column(first, HEADERS["movement_type"]),
         needs_sync_col=_find_optional_header_column(first, HEADERS["needs_sync"]),
         sync_reason_col=_find_optional_header_column(first, HEADERS["sync_reason"]),
+        topic_id_col=_find_optional_header_column(first, HEADERS["topic_id"]),
     )
 
 
@@ -286,6 +312,8 @@ def active_row_updates(row: dict, columns: ActiveSheetColumns) -> list[tuple[int
         updates.append((columns.needs_sync_col, row.get("needs_sync", YesNo.NO.value), "needs_sync"))
     if columns.sync_reason_col:
         updates.append((columns.sync_reason_col, row.get("sync_reason", ""), "sync_reason"))
+    if columns.topic_id_col and not row.get("topic_id_persisted", False):
+        updates.append((columns.topic_id_col, row.get("topic_id", ""), "topic_id"))
     return _dedupe_updates(updates)
 
 
@@ -301,6 +329,7 @@ def active_append_row_values(row: dict, columns: ActiveSheetColumns) -> list[str
         columns.movement_col or 0,
         columns.needs_sync_col or 0,
         columns.sync_reason_col or 0,
+        columns.topic_id_col or 0,
     )
     values = [""] * width
     _set(values, columns.topic_col, row.get("topic_title", ""))
@@ -319,6 +348,8 @@ def active_append_row_values(row: dict, columns: ActiveSheetColumns) -> list[str
         _set(values, columns.needs_sync_col, row.get("needs_sync", YesNo.NO.value))
     if columns.sync_reason_col:
         _set(values, columns.sync_reason_col, row.get("sync_reason", ""))
+    if columns.topic_id_col:
+        _set(values, columns.topic_id_col, row.get("topic_id", ""))
     return values
 
 

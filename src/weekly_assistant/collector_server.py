@@ -822,6 +822,23 @@ def _is_active_source(session: dict) -> bool:
     )
 
 
+def _read_topic_id_map(adapter: GoogleSheetsAdapter, target_sheet: str, columns) -> dict:
+    """Map persisted Topic ID -> physical sheet row, so write-back can't drift if rows moved."""
+    if not getattr(columns, "topic_id_col", None):
+        return {}
+    letter = active_column_letter(columns.topic_id_col)
+    try:
+        values = adapter.read_values(f"'{target_sheet}'!{letter}1:{letter}")
+    except Exception:
+        return {}
+    id_map: dict[str, int] = {}
+    for physical_row, cells in enumerate(values or [], start=1):
+        value = str(cells[0]).strip() if cells else ""
+        if value and value not in id_map:
+            id_map[value] = physical_row
+    return id_map
+
+
 def _write_active_session(adapter: GoogleSheetsAdapter, session: dict) -> dict:
     target_sheet = session.get("metadata", {}).get("active_sheet", {}).get("sheet_name") or session.get("sheet_name") or ACTIVE_SHEET_NAME
     week_label = _active_session_week_label(session)
@@ -830,6 +847,7 @@ def _write_active_session(adapter: GoogleSheetsAdapter, session: dict) -> dict:
     session["metadata"]["active_sheet"]["week_label"] = week_label
     session["metadata"]["active_sheet"]["columns"] = columns.to_dict()
     session["metadata"]["active_sheet"]["created_week_columns"] = list(created_week_columns)
+    id_map = _read_topic_id_map(adapter, target_sheet, columns)
 
     updated = []
     changed_rows = [row for row in session["rows"] if row.get("changed") or row.get("is_new")]
@@ -867,8 +885,9 @@ def _write_active_session(adapter: GoogleSheetsAdapter, session: dict) -> dict:
         if not updates:
             continue
         cell_results = []
+        target_row = id_map.get(row.get("topic_id"), row["row_number"])
         for col_index, value, field in updates:
-            range_name = f"'{target_sheet}'!{active_column_letter(col_index)}{row['row_number']}"
+            range_name = f"'{target_sheet}'!{active_column_letter(col_index)}{target_row}"
             result = adapter.update_values(range_name, [[value]])
             cell_results.append({"range": range_name, "field": field, "result": result})
         if row.get("changed"):
