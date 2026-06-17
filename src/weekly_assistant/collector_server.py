@@ -237,7 +237,7 @@ class CollectorStore:
         return row
 
     def archive_project(self, topic_id: str) -> dict:
-        return self.update_project(topic_id, {"section": "Архив", "lifecycle": Lifecycle.ARCHIVED.value})
+        return self.update_project(topic_id, {"lifecycle": Lifecycle.ARCHIVED.value})
 
     def start_next_week(self, week_start: str = "", week_end: str = "", include_paused: bool = False) -> dict:
         session = self.load()
@@ -1956,6 +1956,7 @@ label { display: block; margin: 0 0 7px; color: #56554f; font-size: 11px; font-w
 .topic-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .topic-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink); font-size: 13px; font-weight: 580; }
 .topic-item.empty .topic-title { color: var(--muted-2); }
+.topic-item.archived, .topic-rail-item.archived { opacity: .5; }
 .topic-meta-small { display: flex; align-items: center; gap: 6px; min-width: 0; color: #a3a29b; font-size: 11px; }
 .topic-meta-small code { color: var(--muted-2); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 650; }
 .topic-item.active .topic-meta-small code { color: var(--accent); }
@@ -2107,8 +2108,18 @@ function activeRows() {
   return session.rows.filter(row => row.lifecycle === "active");
 }
 
+const LIFECYCLE_RANK = { active: 0, paused: 1, archived: 2, closed: 3 };
+function lifecycleRank(row) {
+  const rank = LIFECYCLE_RANK[row.lifecycle];
+  return rank === undefined ? 0 : rank;
+}
+
 function visibleRows() {
-  return session.rows.filter(row => !["archived", "closed"].includes(row.lifecycle));
+  // all rows, stable-sorted by lifecycle: active/paused first, archived/closed batched at the end
+  return session.rows
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => (lifecycleRank(a.row) - lifecycleRank(b.row)) || (a.index - b.index))
+    .map(entry => entry.row);
 }
 
 function filteredRows() {
@@ -2119,13 +2130,12 @@ function filteredRows() {
 }
 
 function firstVisibleRow() {
-  return visibleRows()[0] || session.rows[0];
+  const rows = visibleRows();
+  return rows.find(row => row.lifecycle === "active") || rows[0] || session.rows[0];
 }
 
 function selectedRow() {
-  const row = session.rows.find(row => row.topic_id === selectedId);
-  if (row && !["archived", "closed"].includes(row.lifecycle)) return row;
-  return firstVisibleRow();
+  return session.rows.find(row => row.topic_id === selectedId) || firstVisibleRow();
 }
 
 function projectMode(row) {
@@ -2234,11 +2244,11 @@ function renderTopics() {
     const reviewed = isReviewed(row);
     const button = document.createElement("button");
     if (rail) {
-      button.className = ["topic-rail-item", row.topic_id === selectedId ? "active" : "", filled ? "done" : "empty", reviewed ? "reviewed" : ""].filter(Boolean).join(" ");
+      button.className = ["topic-rail-item", row.topic_id === selectedId ? "active" : "", filled ? "done" : "empty", reviewed ? "reviewed" : "", row.lifecycle === "archived" ? "archived" : ""].filter(Boolean).join(" ");
       button.title = `${row.topic_id} · ${row.topic_title}`;
       button.innerHTML = `<span class="topic-dot"></span><code>${escapeHtml(String(row.topic_id).replace(/^T-?/, ""))}</code>`;
     } else {
-      button.className = ["topic-item", row.topic_id === selectedId ? "active" : "", filled ? "done" : "empty", reviewed ? "reviewed" : "", row.changed ? "changed" : ""].filter(Boolean).join(" ");
+      button.className = ["topic-item", row.topic_id === selectedId ? "active" : "", filled ? "done" : "empty", reviewed ? "reviewed" : "", row.changed ? "changed" : "", row.lifecycle === "archived" ? "archived" : ""].filter(Boolean).join(" ");
       button.innerHTML = `
       <span class="topic-dot"></span>
       <span class="topic-copy">
@@ -2265,6 +2275,8 @@ function renderTopics() {
 }
 
 function topicStateLabel(row) {
+  if (row.lifecycle === "archived") return "архив";
+  if (row.lifecycle === "closed") return "закрыто";
   if (isReviewed(row)) return "проверено";
   if (row.status === "chatgpt_imported") return "импорт";
   if (isFilled(row)) return "ждет проверки";
@@ -2285,6 +2297,14 @@ function renderSelected() {
   document.getElementById("projectMode").value = projectMode(row);
   document.getElementById("projectFocus").value = row.focus || "no";
   document.getElementById("projectDateCreated").value = row.date_created || "";
+  const archiveBtn = document.getElementById("archiveProjectBtn");
+  if (row.lifecycle === "archived") {
+    archiveBtn.textContent = "Вернуть из архива";
+    archiveBtn.className = "btn btn-subtle";
+  } else {
+    archiveBtn.textContent = "Archive";
+    archiveBtn.className = "btn btn-danger";
+  }
   for (const [id, key] of Object.entries(fields)) {
     const el = document.getElementById(id);
     if (el) el.value = row[key] || "";
@@ -2420,15 +2440,22 @@ async function createProject() {
 async function archiveProject() {
   await saveCurrentIfDirty();
   const row = selectedRow();
-  const activeSource = session.metadata?.source_format === "active_legacy";
-  const actionText = activeSource ? "Скрыть в этой локальной сессии" : "Перенести в архив";
-  if (!row || !confirm(`${actionText}: ${row.topic_title}?`)) return;
+  if (!row) return;
+  if (row.lifecycle === "archived") {
+    const data = await api("/api/project", { topic_id: selectedId, patch: { lifecycle: "active" } });
+    replaceRow(data.row);
+    dirty = false;
+    projectDirty = false;
+    message("Возвращено из архива. Нажми Write Active для записи.");
+    render();
+    return;
+  }
+  if (!confirm(`В архив (уйдёт в конец очереди): ${row.topic_title}?`)) return;
   const data = await api("/api/project-archive", { topic_id: selectedId });
   replaceRow(data.row);
-  selectedId = firstVisibleRow()?.topic_id;
   dirty = false;
   projectDirty = false;
-  message(activeSource ? "Hidden locally. Перенос в Архив сделай вручную в Google Sheet." : "Moved to archive. Нажми Write Active, чтобы записать в Google Sheet.");
+  message("В архиве — в конце очереди. Перенос в лист «Архив» — вручную.");
   render();
 }
 
