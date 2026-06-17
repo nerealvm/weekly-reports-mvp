@@ -64,26 +64,25 @@ class ActiveSheetTest(unittest.TestCase):
 
         requests, created = build_active_week_column_requests(_FakeSheetsAdapter(), "Активные", header_values, "15.05")
 
-        self.assertEqual(created, ["previous_status", "current_result", "milestone", "movement_type", "needs_sync", "sync_reason", "topic_id"])
+        self.assertEqual(created, ["previous_status", "current_result", "milestone", "movement_type", "needs_sync", "sync_reason"])
         insertions = [request["insertDimension"]["range"]["startIndex"] for request in requests if "insertDimension" in request]
         self.assertEqual(insertions, [14, 12, 9, 6])
         hidden_ranges = [request["updateDimensionProperties"]["range"] for request in requests if "updateDimensionProperties" in request]
         self.assertEqual(hidden_ranges[0]["startIndex"], 14)
-        self.assertEqual(hidden_ranges[0]["endIndex"], 18)
+        self.assertEqual(hidden_ranges[0]["endIndex"], 17)
 
     def test_ensure_active_week_columns_resolves_inserted_columns(self):
         adapter = _FakeSheetsAdapter()
 
         columns, created = ensure_active_week_columns(adapter, target_sheet="Активные", week_label="15.05")
 
-        self.assertEqual(created, ("previous_status", "current_result", "milestone", "movement_type", "needs_sync", "sync_reason", "topic_id"))
+        self.assertEqual(created, ("previous_status", "current_result", "milestone", "movement_type", "needs_sync", "sync_reason"))
         self.assertEqual(column_letter(columns.previous_status_col), "G")
         self.assertEqual(column_letter(columns.current_result_col), "K")
         self.assertEqual(column_letter(columns.milestone_col), "O")
         self.assertEqual(column_letter(columns.movement_col), "R")
         self.assertEqual(column_letter(columns.needs_sync_col), "S")
         self.assertEqual(column_letter(columns.sync_reason_col), "T")
-        self.assertEqual(column_letter(columns.topic_id_col), "U")
 
     def test_existing_service_columns_are_hidden_without_recreating(self):
         rows = _active_rows_with_service()
@@ -93,7 +92,7 @@ class ActiveSheetTest(unittest.TestCase):
         self.assertEqual(created, [])
         self.assertFalse(any("insertDimension" in request for request in requests))
         hidden_ranges = [request["updateDimensionProperties"]["range"] for request in requests if "updateDimensionProperties" in request]
-        self.assertEqual([(item["startIndex"], item["endIndex"]) for item in hidden_ranges], [(14, 15), (15, 16), (16, 17), (17, 18)])
+        self.assertEqual([(item["startIndex"], item["endIndex"]) for item in hidden_ranges], [(14, 15), (15, 16), (16, 17)])
 
     def test_reads_existing_service_columns_from_active_sheet(self):
         path = _write_csv(_active_rows_with_service())
@@ -207,7 +206,7 @@ class _FakeSheetsAdapter:
     def read_values(self, _range):
         if self.batch_requests:
             return [
-                ["", "Тема", "Дата постановки", "Статус предыдущей недели", "", "", "", "Куда мы докатились на этой", "", "", "", "Когда докатимся и куда", "", "", "", "На чьей стороне мяч", "Открытые вопросы", "Movement type", "Нужен sync", "Причина sync", "Topic ID"],
+                ["", "Тема", "Дата постановки", "Статус предыдущей недели", "", "", "", "Куда мы докатились на этой", "", "", "", "Когда докатимся и куда", "", "", "", "На чьей стороне мяч", "Открытые вопросы", "Movement type", "Нужен sync", "Причина sync"],
                 ["", "", "", "", "1.05", "8.05", "15.05", "", "1.05", "8.05", "15.05", "", "1.05", "8.05", "15.05", "", "", "", "", ""],
             ]
         return [_active_rows()[0], _active_rows()[1]]

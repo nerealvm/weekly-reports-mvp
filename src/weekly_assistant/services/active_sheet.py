@@ -20,8 +20,11 @@ SERVICE_FIELD_HEADERS = (
     ("movement_type", HEADERS["movement_type"]),
     ("needs_sync", HEADERS["needs_sync"]),
     ("sync_reason", HEADERS["sync_reason"]),
-    ("topic_id", HEADERS["topic_id"]),
 )
+# Topic ID is a visible anchor column kept at the front of the sheet (not a
+# hidden service column). The collector reads/writes it by header; write-back
+# maps rows to physical sheet rows by it so the mapping can't drift.
+TOPIC_ID_HEADER = HEADERS["topic_id"]
 
 
 @dataclass(frozen=True)
