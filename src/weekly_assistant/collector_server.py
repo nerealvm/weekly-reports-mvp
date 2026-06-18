@@ -763,6 +763,7 @@ class CollectorHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
@@ -1593,6 +1594,7 @@ INDEX_HTML = """<!doctype html>
       <div class="write-overlay-title" id="writeOverlayTitle">Запись в Google Sheet…</div>
       <div class="write-progress-track"><div class="write-progress-bar" id="writeProgressBar"></div></div>
       <div class="write-overlay-sub" id="writeOverlaySub">Подождите, это займёт несколько секунд</div>
+      <button id="writeOverlayClose" class="btn btn-ok" hidden>Закрыть</button>
     </div>
   </div>
   <main class="collector-shell">
@@ -1624,18 +1626,10 @@ INDEX_HTML = """<!doctype html>
           <span>Импорт результата</span>
         </button>
         <input id="importFileInput" type="file" accept=".json,application/json" hidden>
-        <div class="final-actions">
-          <button id="finalMenuBtn" class="btn btn-warn" aria-expanded="false">
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11V3"/><path d="M5 6l3-3 3 3"/><path d="M3 13h10"/></svg>
-            <span>Записать в файл</span>
-            <svg class="caret" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
-          </button>
-          <div id="finalMenu" class="final-popover" hidden>
-            <div id="readyNote" class="ready-note">Проверь поля перед записью.</div>
-            <button id="writeBtn" class="btn btn-warn-solid">Записать в Google Sheet</button>
-            <button id="nextWeekBtn" class="btn btn-subtle full">Start next week</button>
-          </div>
-        </div>
+        <button id="writeBtn" class="btn btn-warn">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11V3"/><path d="M5 6l3-3 3 3"/><path d="M3 13h10"/></svg>
+          <span id="writeBtnLabel">Записать в файл</span>
+        </button>
       </nav>
     </header>
 
@@ -2285,7 +2279,7 @@ function renderFinalMenu() {
   note.textContent = filled > 0 && pending === 0
     ? "Все заполненные темы проверены — можно записывать."
     : `${pending} тем еще не проверено. Запись доступна, но лучше пройти очередь.`;
-  document.getElementById("writeBtn").textContent = `Записать ${filled} тем в Google Sheet`;
+  document.getElementById("writeBtnLabel").textContent = `Записать ${filled} тем в файл`;
 }
 
 function queueIsCollapsed() {
@@ -2689,45 +2683,57 @@ function startWriteProgress() {
   const overlay = document.getElementById("writeOverlay");
   const bar = document.getElementById("writeProgressBar");
   const sub = document.getElementById("writeOverlaySub");
+  const closeBtn = document.getElementById("writeOverlayClose");
+  const titleEl = document.getElementById("writeOverlayTitle");
   overlay.hidden = false;
   bar.style.width = "0%";
+  titleEl.textContent = "Запись в Google Sheet…";
   sub.textContent = "Подождите, это займёт несколько секунд";
+  closeBtn.hidden = true;
   let pct = 0;
   const interval = setInterval(() => {
     pct = pct < 85 ? pct + (85 - pct) * 0.07 + 0.5 : pct;
     bar.style.width = `${Math.min(pct, 85)}%`;
   }, 300);
+  function dismiss() {
+    overlay.hidden = true;
+    closeBtn.hidden = true;
+    closeBtn.onclick = null;
+  }
   return {
-    finish(title) {
+    finish(msg) {
       clearInterval(interval);
       bar.style.width = "100%";
-      document.getElementById("writeOverlayTitle").textContent = title || "Готово";
-      sub.textContent = "";
-      setTimeout(() => { overlay.hidden = true; document.getElementById("writeOverlayTitle").textContent = "Запись в Google Sheet…"; }, 1400);
+      titleEl.textContent = "✓ Записано";
+      sub.textContent = msg || "Готово";
+      closeBtn.hidden = false;
+      closeBtn.textContent = "Закрыть";
+      closeBtn.className = "btn btn-ok";
+      closeBtn.onclick = dismiss;
     },
     error(msg) {
       clearInterval(interval);
-      overlay.hidden = true;
-      document.getElementById("writeOverlayTitle").textContent = "Запись в Google Sheet…";
+      bar.style.width = "0%";
+      titleEl.textContent = "⚠ Ошибка";
+      sub.textContent = msg || "Что-то пошло не так";
+      closeBtn.hidden = false;
+      closeBtn.textContent = "Закрыть";
+      closeBtn.className = "btn btn-danger";
+      closeBtn.onclick = dismiss;
     }
   };
 }
 
 async function writeBack() {
   await saveEverythingIfDirty();
-  closeFinalMenu();
-  const target = session.metadata?.source_format === "active_legacy" ? "в Активные" : "в Google Sheet";
-  if (!confirm(`Записать изменения ${target}?`)) return;
   const progress = startWriteProgress();
   try {
     const data = await api("/api/write-back", {});
-    const created = (data.created_week_columns || []).length ? ` · созданы колонки: ${data.created_week_columns.join(", ")}` : "";
-    const collapsed = data.collapsed_old_weeks ? ` · свёрнуто групп: ${data.collapsed_old_weeks}` : "";
-    progress.finish(`Записано строк: ${data.updated_count}${created}${collapsed}`);
-    message(`Записано: ${data.updated_count} строк${created}`);
+    const created = (data.created_week_columns || []).length ? ` · колонки: ${data.created_week_columns.join(", ")}` : "";
+    const collapsed = data.collapsed_old_weeks ? ` · свёрнуто: ${data.collapsed_old_weeks}` : "";
+    progress.finish(`${data.updated_count} строк${created}${collapsed}`);
   } catch (err) {
     progress.error(err.message);
-    message(err.message, true);
   }
 }
 
@@ -2750,17 +2756,12 @@ async function exportActive() {
 }
 
 function toggleFinalMenu() {
-  const menu = document.getElementById("finalMenu");
-  const button = document.getElementById("finalMenuBtn");
-  const nextHidden = !menu.hidden;
-  menu.hidden = nextHidden;
+  // menu removed — no-op kept for safety
+  const nextHidden = true;
   button.setAttribute("aria-expanded", String(!nextHidden));
 }
 
-function closeFinalMenu() {
-  document.getElementById("finalMenu").hidden = true;
-  document.getElementById("finalMenuBtn").setAttribute("aria-expanded", "false");
-}
+function closeFinalMenu() { /* menu removed */ }
 
 function markWeeklyDirty(sourceId) {
   dirty = true;
@@ -2830,11 +2831,7 @@ document.addEventListener("change", event => {
     scheduleAutoSave();
   }
 });
-document.addEventListener("click", event => {
-  const menu = document.getElementById("finalMenu");
-  const finalActions = document.querySelector(".final-actions");
-  if (!menu.hidden && !finalActions.contains(event.target)) closeFinalMenu();
-});
+// (finalMenu removed)
 document.getElementById("saveProjectBtn").onclick = () => saveProject().catch(error => message(error.message, true));
 document.getElementById("newProjectBtn").onclick = () => createProject().catch(error => message(error.message, true));
 document.getElementById("archiveProjectBtn").onclick = () => archiveProject().catch(error => message(error.message, true));
@@ -2848,14 +2845,11 @@ document.getElementById("exportFileBtn").onclick = () => exportContextFile().cat
 document.getElementById("openImportBtn").onclick = () => triggerImportFile();
 document.getElementById("emptyImportBtn").onclick = () => triggerImportFile();
 document.getElementById("importFileInput").onchange = event => importFromFile(event).catch(error => message(error.message, true));
-document.getElementById("finalMenuBtn").onclick = event => { event.stopPropagation(); toggleFinalMenu(); };
-document.getElementById("finalMenu").onclick = event => event.stopPropagation();
 document.getElementById("writeBtn").onclick = () => writeBack().catch(error => message(error.message, true));
 const weekTabBtn = document.getElementById("weekTabBtn");
 if (weekTabBtn) weekTabBtn.onclick = () => createWeekTab().catch(error => message(error.message, true));
 const activeExportBtn = document.getElementById("activeExportBtn");
 if (activeExportBtn) activeExportBtn.onclick = () => exportActive().catch(error => message(error.message, true));
-document.getElementById("nextWeekBtn").onclick = () => startNextWeek().catch(error => message(error.message, true));
 for (const button of document.querySelectorAll("[data-status]")) {
   button.onclick = () => setStatus(button.dataset.status).catch(error => message(error.message, true));
 }

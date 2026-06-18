@@ -622,12 +622,19 @@ def _normalize(value: str) -> str:
 
 
 def collapse_old_week_columns(adapter: GoogleSheetsAdapter, target_sheet: str, header_values: list[list[str]], week_label: str) -> int:
-    """Group and collapse all week sub-columns except the current week. Returns number of groups created."""
+    """Collapse old week sub-columns into existing column groups. Returns number of groups collapsed."""
     sheet_id = _sheet_id(adapter, target_sheet)
     first = _row_at(header_values, 0)
     second = _row_at(header_values, 1)
 
-    ranges: list[dict] = []
+    existing_ranges = {
+        (g["range"]["startIndex"], g["range"]["endIndex"])
+        for g in _get_existing_column_groups(adapter, target_sheet)
+        if g.get("depth") == 1
+    }
+
+    ranges_to_collapse: list[dict] = []
+    ranges_to_add: list[dict] = []
     for group_query in (PREVIOUS_STATUS_GROUP, CURRENT_RESULT_GROUP, MILESTONE_GROUP):
         try:
             week_cols = _week_columns(first, second, group_query)
@@ -636,30 +643,43 @@ def collapse_old_week_columns(adapter: GoogleSheetsAdapter, target_sheet: str, h
         old_cols = [col for col in week_cols if col.label != week_label]
         if not old_cols:
             continue
-        ranges.append({
+        r = {
             "sheetId": sheet_id,
             "dimension": "COLUMNS",
             "startIndex": old_cols[0].index - 1,
             "endIndex": old_cols[-1].index,
-        })
+        }
+        ranges_to_collapse.append(r)
+        if (r["startIndex"], r["endIndex"]) not in existing_ranges:
+            ranges_to_add.append(r)
 
-    if not ranges:
+    if not ranges_to_collapse:
         return 0
 
-    add_requests = [{"addDimensionGroup": {"range": r}} for r in ranges]
-    try:
-        adapter.batch_update(add_requests)
-    except Exception:
-        pass  # Groups may already exist; still try to collapse
+    if ranges_to_add:
+        try:
+            adapter.batch_update([{"addDimensionGroup": {"range": r}} for r in ranges_to_add])
+        except Exception:
+            pass
 
-    collapse_requests = [
+    adapter.batch_update([
         {
             "updateDimensionGroup": {
                 "dimensionGroup": {"range": r, "depth": 1, "collapsed": True},
                 "fields": "collapsed",
             }
         }
-        for r in ranges
-    ]
-    adapter.batch_update(collapse_requests)
-    return len(ranges)
+        for r in ranges_to_collapse
+    ])
+    return len(ranges_to_collapse)
+
+
+def _get_existing_column_groups(adapter: GoogleSheetsAdapter, sheet_title: str) -> list[dict]:
+    try:
+        metadata = adapter.spreadsheet_metadata("sheets(properties,columnGroups)")
+        for sheet in metadata.get("sheets", []):
+            if sheet.get("properties", {}).get("title") == sheet_title:
+                return sheet.get("columnGroups", [])
+    except Exception:
+        pass
+    return []
