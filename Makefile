@@ -1,10 +1,10 @@
 PYTHONPATH := src
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 SAMPLE := tests/fixtures/weekly_mvp_sample.csv
-_THIS_MON := $(shell $(PYTHON) -c "from datetime import date,timedelta; t=date.today(); print((t-timedelta(days=t.weekday())).strftime('%Y-%m-%d'))")
-_NEXT_MON := $(shell $(PYTHON) -c "from datetime import date,timedelta; t=date.today(); print((t-timedelta(days=t.weekday())+timedelta(days=7)).strftime('%Y-%m-%d'))")
-WEEK_START ?= $(_THIS_MON)
-WEEK_END ?= $(_NEXT_MON)
+_THIS_FRI := $(shell $(PYTHON) -c "from datetime import date,timedelta; t=date.today(); d=(4-t.weekday())%7; print((t+timedelta(days=d)).strftime('%Y-%m-%d'))")
+_PREV_FRI := $(shell $(PYTHON) -c "from datetime import date,timedelta; t=date.today(); d=(4-t.weekday())%7; print((t+timedelta(days=d)-timedelta(days=7)).strftime('%Y-%m-%d'))")
+WEEK_START ?= $(_PREV_FRI)
+WEEK_END ?= $(_THIS_FRI)
 COLLECTOR_PORT ?= 8765
 VIEWER_PORT ?= 8770
 COLLECTOR_GID ?= 0
