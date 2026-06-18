@@ -896,9 +896,14 @@ def _write_active_session(adapter: GoogleSheetsAdapter, session: dict) -> dict:
         for row, updates in pending:
             tr = target_rows[row["topic_id"]]
             for col_index, value, _field in updates:
-                range_name = f"'{target_sheet}'!{active_column_letter(col_index)}{tr}"
-                batch_data.append({"range": range_name, "values": [[value]]})
-        adapter.batch_update_values(batch_data)
+                letter = active_column_letter(col_index)
+                if not letter or not tr:
+                    continue
+                batch_data.append({"range": f"'{target_sheet}'!{letter}{tr}", "values": [[str(value)]]})
+        print(f"[write] pending={len(pending)} rows  batch_data={len(batch_data)} entries  cols: prev={columns.previous_status_col} mov={columns.movement_col} sync={columns.needs_sync_col}", flush=True)
+        if batch_data:
+            resp = adapter.batch_update_values(batch_data)
+            print(f"[write] API totalUpdatedCells={resp.get('totalUpdatedCells')} totalUpdatedRows={resp.get('totalUpdatedRows')}", flush=True)
         for row, updates in pending:
             tr = target_rows[row["topic_id"]]
             if row.get("changed"):
@@ -911,6 +916,7 @@ def _write_active_session(adapter: GoogleSheetsAdapter, session: dict) -> dict:
                     "range": ", ".join(
                         f"'{target_sheet}'!{active_column_letter(col_index)}{tr}"
                         for col_index, _, _f in updates
+                        if active_column_letter(col_index)
                     ),
                     "fields": [f for _, _, f in updates],
                     "result": {"batched": True},
