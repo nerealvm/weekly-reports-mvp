@@ -26,6 +26,7 @@ from weekly_assistant.services.active_sheet import (
     active_append_row_values,
     active_row_updates,
     build_active_session_rows_from_csv,
+    collapse_old_week_columns,
     column_letter as active_column_letter,
     ensure_active_week_columns,
     is_active_sheet_csv,
@@ -903,12 +904,19 @@ def _write_active_session(adapter: GoogleSheetsAdapter, session: dict) -> dict:
             }
         )
 
+    header_values = adapter.read_values(f"'{target_sheet}'!1:2")
+    try:
+        collapsed = collapse_old_week_columns(adapter, target_sheet, header_values, week_label)
+    except Exception:
+        collapsed = 0
+
     return {
         "updated_count": len(updated),
         "updated": updated,
         "target_sheet": target_sheet,
         "week_label": week_label,
         "created_week_columns": list(created_week_columns),
+        "collapsed_old_weeks": collapsed,
     }
 
 
@@ -1006,7 +1014,8 @@ def _recommend_sync_for_session_row(row: dict) -> tuple[str, str]:
     reasons = []
     if (row.get("open_question_to_evgeny") or "").strip():
         reasons.append("есть вопрос к Евгению")
-    if "Евгений" in (row.get("ball_side") or ""):
+    _ball = (row.get("ball_side") or "").strip().lower()
+    if "евгений" in _ball or _ball == "evgeny":
         reasons.append("мяч у Евгения")
     if row.get("focus") == YesNo.YES.value and row.get("movement_type") == MovementType.UNCLEAR.value:
         reasons.append("focus-тема с неясным движением")
@@ -1144,7 +1153,7 @@ def _build_chatgpt_context(session: dict) -> dict:
                     "current_week_facts": "Сырые факты этой недели",
                     "final_result": "Готовая формулировка через результат",
                     "milestones": [{"date": "10.05", "text": "Ближайшая веха"}],
-                    "ball_side": "me | evgeny | external: кто именно",
+                    "ball_side": "Я | Евгений | external: кто именно",
                     "open_question_to_evgeny": "",
                     "movement_type": "real_result | no_movement | unclear",
                     "needs_sync": "yes | no",
@@ -1567,6 +1576,13 @@ INDEX_HTML = """<!doctype html>
   <link rel="stylesheet" href="/app.css">
 </head>
 <body>
+  <div id="writeOverlay" class="write-overlay" hidden>
+    <div class="write-overlay-card">
+      <div class="write-overlay-title" id="writeOverlayTitle">Запись в Google Sheet…</div>
+      <div class="write-progress-track"><div class="write-progress-bar" id="writeProgressBar"></div></div>
+      <div class="write-overlay-sub" id="writeOverlaySub">Подождите, это займёт несколько секунд</div>
+    </div>
+  </div>
   <main class="collector-shell">
     <header class="topbar">
       <div class="brand">
@@ -1599,12 +1615,12 @@ INDEX_HTML = """<!doctype html>
         <div class="final-actions">
           <button id="finalMenuBtn" class="btn btn-warn" aria-expanded="false">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11V3"/><path d="M5 6l3-3 3 3"/><path d="M3 13h10"/></svg>
-            <span>Write Active</span>
+            <span>Записать в файл</span>
             <svg class="caret" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
           </button>
           <div id="finalMenu" class="final-popover" hidden>
             <div id="readyNote" class="ready-note">Проверь поля перед записью.</div>
-            <button id="writeBtn" class="btn btn-warn-solid">Записать в «Активные»</button>
+            <button id="writeBtn" class="btn btn-warn-solid">Записать в Google Sheet</button>
             <button id="nextWeekBtn" class="btn btn-subtle full">Start next week</button>
           </div>
         </div>
@@ -1696,7 +1712,7 @@ INDEX_HTML = """<!doctype html>
             <div class="two-col">
               <div>
                 <label for="ballSide">Мяч</label>
-                <input id="ballSide" placeholder="На чьей стороне ход">
+                <input id="ballSide" placeholder="Я / Евгений / external: кто">
               </div>
               <div>
                 <label for="question">Вопрос к Евгению</label>
@@ -2083,6 +2099,29 @@ label { display: block; margin: 0 0 7px; color: #56554f; font-size: 11px; font-w
   .review-badge { margin-top: 10px; }
   .empty-state { align-items: flex-start; flex-direction: column; }
 }
+
+.write-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+}
+.write-overlay[hidden] { display: none; }
+.write-overlay-card {
+  background: var(--panel); border-radius: 14px;
+  padding: 32px 36px; min-width: 320px; max-width: 420px; width: 90%;
+  box-shadow: 0 8px 40px rgba(0,0,0,.35);
+  display: flex; flex-direction: column; gap: 16px;
+}
+.write-overlay-title { font-weight: 600; font-size: 1rem; color: var(--text); }
+.write-overlay-sub { font-size: .8rem; color: var(--muted); }
+.write-progress-track {
+  height: 6px; border-radius: 3px; background: var(--border); overflow: hidden;
+}
+.write-progress-bar {
+  height: 100%; border-radius: 3px;
+  background: var(--accent); width: 0%;
+  transition: width .25s ease;
+}
 """
 
 
@@ -2234,7 +2273,7 @@ function renderFinalMenu() {
   note.textContent = filled > 0 && pending === 0
     ? "Все заполненные темы проверены — можно записывать."
     : `${pending} тем еще не проверено. Запись доступна, но лучше пройти очередь.`;
-  document.getElementById("writeBtn").textContent = `Записать ${filled} тем в «Активные»`;
+  document.getElementById("writeBtn").textContent = `Записать ${filled} тем в Google Sheet`;
 }
 
 function queueIsCollapsed() {
@@ -2303,6 +2342,13 @@ function topicStateLabel(row) {
   return "пусто";
 }
 
+function displayBall(value) {
+  const v = (value || "").trim().toLowerCase();
+  if (v === "me") return "Я";
+  if (v === "evgeny") return "Евгений";
+  return value || "";
+}
+
 function renderSelected() {
   const row = selectedRow();
   if (!row) return;
@@ -2326,7 +2372,10 @@ function renderSelected() {
   }
   for (const [id, key] of Object.entries(fields)) {
     const el = document.getElementById(id);
-    if (el) el.value = row[key] || "";
+    if (!el) continue;
+    let val = row[key] || "";
+    if (id === "ballSide") val = displayBall(val);
+    el.value = val;
   }
   if (!document.getElementById("reviewStatus").value) document.getElementById("reviewStatus").value = "draft";
   document.getElementById("previousResult").textContent = row.previous_week_result || "Нет прошлого результата.";
@@ -2449,7 +2498,7 @@ async function createProject() {
   session.rows.push(data.row);
   selectedId = data.row.topic_id;
   document.getElementById("newProjectTitle").value = "";
-  document.getElementById("newProjectResult").textContent = `Добавлено: ${data.row.topic_id}. Нажми Write Active, чтобы записать в Google Sheet.`;
+  document.getElementById("newProjectResult").textContent = `Добавлено: ${data.row.topic_id}. Нажми «Записать в файл», чтобы записать в Google Sheet.`;
   dirty = false;
   projectDirty = false;
   message("New row added");
@@ -2465,7 +2514,7 @@ async function archiveProject() {
     replaceRow(data.row);
     dirty = false;
     projectDirty = false;
-    message("Возвращено из архива. Нажми Write Active для записи.");
+    message("Возвращено из архива. Нажми «Записать в файл» для записи.");
     render();
     return;
   }
@@ -2624,15 +2673,50 @@ function formatIsoDate(date) {
   return date.toISOString().slice(0, 10);
 }
 
+function startWriteProgress() {
+  const overlay = document.getElementById("writeOverlay");
+  const bar = document.getElementById("writeProgressBar");
+  const sub = document.getElementById("writeOverlaySub");
+  overlay.hidden = false;
+  bar.style.width = "0%";
+  sub.textContent = "Подождите, это займёт несколько секунд";
+  let pct = 0;
+  const interval = setInterval(() => {
+    pct = pct < 85 ? pct + (85 - pct) * 0.07 + 0.5 : pct;
+    bar.style.width = `${Math.min(pct, 85)}%`;
+  }, 300);
+  return {
+    finish(title) {
+      clearInterval(interval);
+      bar.style.width = "100%";
+      document.getElementById("writeOverlayTitle").textContent = title || "Готово";
+      sub.textContent = "";
+      setTimeout(() => { overlay.hidden = true; document.getElementById("writeOverlayTitle").textContent = "Запись в Google Sheet…"; }, 1400);
+    },
+    error(msg) {
+      clearInterval(interval);
+      overlay.hidden = true;
+      document.getElementById("writeOverlayTitle").textContent = "Запись в Google Sheet…";
+    }
+  };
+}
+
 async function writeBack() {
   await saveEverythingIfDirty();
   closeFinalMenu();
   const target = session.metadata?.source_format === "active_legacy" ? "в Активные" : "в Google Sheet";
   if (!confirm(`Записать изменения ${target}?`)) return;
-  const data = await api("/api/write-back", {});
-  const created = (data.created_week_columns || []).length ? `\\nСозданы колонки: ${data.created_week_columns.join(", ")}` : "";
-  message(`Updated rows: ${data.updated_count}`);
-  alert(`Updated rows: ${data.updated_count}${created}`);
+  const progress = startWriteProgress();
+  try {
+    const data = await api("/api/write-back", {});
+    const created = (data.created_week_columns || []).length ? ` · созданы колонки: ${data.created_week_columns.join(", ")}` : "";
+    const collapsed = data.collapsed_old_weeks ? ` · свёрнуто групп: ${data.collapsed_old_weeks}` : "";
+    progress.finish(`Записано строк: ${data.updated_count}${created}${collapsed}`);
+    message(`Записано: ${data.updated_count} строк${created}`);
+  } catch (err) {
+    progress.error(err.message);
+    message(err.message, true);
+  }
 }
 
 async function createWeekTab() {

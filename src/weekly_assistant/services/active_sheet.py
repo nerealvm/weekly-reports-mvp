@@ -619,3 +619,47 @@ def _dedupe_updates(updates: list[tuple[int, str, str]]) -> list[tuple[int, str,
 
 def _normalize(value: str) -> str:
     return re.sub(r"\s+", " ", str(value or "").casefold()).strip()
+
+
+def collapse_old_week_columns(adapter: GoogleSheetsAdapter, target_sheet: str, header_values: list[list[str]], week_label: str) -> int:
+    """Group and collapse all week sub-columns except the current week. Returns number of groups created."""
+    sheet_id = _sheet_id(adapter, target_sheet)
+    first = _row_at(header_values, 0)
+    second = _row_at(header_values, 1)
+
+    ranges: list[dict] = []
+    for group_query in (PREVIOUS_STATUS_GROUP, CURRENT_RESULT_GROUP, MILESTONE_GROUP):
+        try:
+            week_cols = _week_columns(first, second, group_query)
+        except ValueError:
+            continue
+        old_cols = [col for col in week_cols if col.label != week_label]
+        if not old_cols:
+            continue
+        ranges.append({
+            "sheetId": sheet_id,
+            "dimension": "COLUMNS",
+            "startIndex": old_cols[0].index - 1,
+            "endIndex": old_cols[-1].index,
+        })
+
+    if not ranges:
+        return 0
+
+    add_requests = [{"addDimensionGroup": {"range": r}} for r in ranges]
+    try:
+        adapter.batch_update(add_requests)
+    except Exception:
+        pass  # Groups may already exist; still try to collapse
+
+    collapse_requests = [
+        {
+            "updateDimensionGroup": {
+                "dimensionGroup": {"range": r, "depth": 1, "collapsed": True},
+                "fields": "collapsed",
+            }
+        }
+        for r in ranges
+    ]
+    adapter.batch_update(collapse_requests)
+    return len(ranges)
