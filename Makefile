@@ -1,8 +1,10 @@
 PYTHONPATH := src
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 SAMPLE := tests/fixtures/weekly_mvp_sample.csv
-WEEK_START ?= 2026-05-01
-WEEK_END ?= 2026-05-08
+_THIS_MON := $(shell $(PYTHON) -c "from datetime import date,timedelta; t=date.today(); print((t-timedelta(days=t.weekday())).strftime('%Y-%m-%d'))")
+_NEXT_MON := $(shell $(PYTHON) -c "from datetime import date,timedelta; t=date.today(); print((t-timedelta(days=t.weekday())+timedelta(days=7)).strftime('%Y-%m-%d'))")
+WEEK_START ?= $(_THIS_MON)
+WEEK_END ?= $(_NEXT_MON)
 COLLECTOR_PORT ?= 8765
 VIEWER_PORT ?= 8770
 COLLECTOR_GID ?= 0
