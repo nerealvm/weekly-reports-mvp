@@ -42,6 +42,12 @@ class GoogleSheetsAdapter:
         payload = {"range": a1_range, "majorDimension": "ROWS", "values": values}
         return self.http_client.request("PUT", url, headers=self._auth_headers(), payload=payload)
 
+    def batch_update_values(self, data: list[dict], value_input_option: str = "USER_ENTERED") -> dict:
+        spreadsheet_id = self.settings.google_sheets_spreadsheet_id
+        url = f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}/values:batchUpdate"
+        payload = {"valueInputOption": value_input_option, "data": data}
+        return self.http_client.request("POST", url, headers=self._auth_headers(), payload=payload)
+
     def append_values(
         self,
         a1_range: str,

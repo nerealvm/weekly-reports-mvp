@@ -876,7 +876,9 @@ def _write_active_session(adapter: GoogleSheetsAdapter, session: dict) -> dict:
                 }
             )
 
+    # Collect all value updates; fire as one batch to avoid per-cell 429s.
     new_row_ids = {row["topic_id"] for row in new_rows}
+    pending: list[tuple[dict, list[tuple[int, str, str]]]] = []
     for row in session["rows"]:
         if row.get("topic_id") in new_row_ids:
             continue
@@ -885,24 +887,34 @@ def _write_active_session(adapter: GoogleSheetsAdapter, session: dict) -> dict:
         updates = active_row_updates(row, columns)
         if not updates:
             continue
-        cell_results = []
-        target_row = id_map.get(row.get("topic_id"), row["row_number"])
-        for col_index, value, field in updates:
-            range_name = f"'{target_sheet}'!{active_column_letter(col_index)}{target_row}"
-            result = adapter.update_values(range_name, [[value]])
-            cell_results.append({"range": range_name, "field": field, "result": result})
-        if row.get("changed"):
-            _mark_row_written(row)
-            _sync_raw_row(session, row)
-        updated.append(
-            {
-                "topic_id": row["topic_id"],
-                "topic_title": row["topic_title"],
-                "range": ", ".join(item["range"] for item in cell_results),
-                "fields": [item["field"] for item in cell_results],
-                "result": {"cells": cell_results},
-            }
-        )
+        pending.append((row, updates))
+
+    if pending:
+        target_rows = {row["topic_id"]: id_map.get(row["topic_id"], row["row_number"]) for row, _ in pending}
+        batch_data = []
+        for row, updates in pending:
+            tr = target_rows[row["topic_id"]]
+            for col_index, value, _field in updates:
+                range_name = f"'{target_sheet}'!{active_column_letter(col_index)}{tr}"
+                batch_data.append({"range": range_name, "values": [[value]]})
+        adapter.batch_update_values(batch_data)
+        for row, updates in pending:
+            tr = target_rows[row["topic_id"]]
+            if row.get("changed"):
+                _mark_row_written(row)
+                _sync_raw_row(session, row)
+            updated.append(
+                {
+                    "topic_id": row["topic_id"],
+                    "topic_title": row["topic_title"],
+                    "range": ", ".join(
+                        f"'{target_sheet}'!{active_column_letter(col_index)}{tr}"
+                        for col_index, _, _f in updates
+                    ),
+                    "fields": [f for _, _, f in updates],
+                    "result": {"batched": True},
+                }
+            )
 
     header_values = adapter.read_values(f"'{target_sheet}'!1:2")
     try:
