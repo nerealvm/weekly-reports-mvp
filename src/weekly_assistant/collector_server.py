@@ -1689,8 +1689,8 @@ INDEX_HTML = """<!doctype html>
                   <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>
                 </button>
               </div>
-              <button class="btn review-next btn-ok" data-review-next title="Пометить проверенной и перейти к следующей">
-                <span class="rn-label">Проверено и дальше</span>
+              <button class="btn review-next btn-primary" data-review-next title="Следующая тема">
+                <span class="rn-label">Далее</span>
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9"/><path d="M9 5l3 3-3 3"/></svg>
               </button>
             </div>
@@ -2278,13 +2278,6 @@ function renderStats() {
 function renderFinalMenu() {
   const rows = activeRows();
   const filled = rows.filter(isFilled).length;
-  const reviewed = rows.filter(isReviewed).length;
-  const pending = Math.max(filled - reviewed, 0);
-  const note = document.getElementById("readyNote");
-  note.className = "ready-note" + (filled > 0 && pending === 0 ? " ready" : "");
-  note.textContent = filled > 0 && pending === 0
-    ? "Все заполненные темы проверены — можно записывать."
-    : `${pending} тем еще не проверено. Запись доступна, но лучше пройти очередь.`;
   document.getElementById("writeBtnLabel").textContent = `Записать ${filled} тем в файл`;
 }
 
@@ -2424,6 +2417,7 @@ function renderMilestoneContext(row) {
 
 function renderReview(row) {
   const badge = document.getElementById("reviewBadge");
+  if (!badge) return;
   badge.className = "review-badge";
   if (!isFilled(row)) {
     badge.textContent = "Нет данных";
@@ -2438,13 +2432,9 @@ function renderReview(row) {
 
 function renderPrimaryAction(row, index, length) {
   const hasNext = index >= 0 && index < length - 1;
-  const willReview = isFilled(row) && !isReviewed(row);
-  const label = willReview ? "Проверено и дальше" : "Следующая тема";
   for (const btn of document.querySelectorAll("[data-review-next]")) {
-    btn.className = "btn review-next " + (willReview ? "btn-ok" : "btn-primary");
-    const span = btn.querySelector(".rn-label");
-    if (span) span.textContent = label;
-    btn.disabled = !willReview && !hasNext;
+    btn.className = "btn review-next btn-primary";
+    btn.disabled = !hasNext;
   }
 }
 
@@ -2555,12 +2545,6 @@ async function setStatus(status) {
 
 async function reviewAndNext() {
   await saveEverythingIfDirty();
-  const row = selectedRow();
-  if (row && isFilled(row) && !isReviewed(row)) {
-    const data = await api("/api/row", { topic_id: selectedId, patch: { review_status: "reviewed" } });
-    replaceRow(data.row);
-    message("Отмечено проверенной");
-  }
   const rows = visibleRows();
   const index = rows.findIndex(candidate => candidate.topic_id === selectedId);
   const next = rows[index + 1];
