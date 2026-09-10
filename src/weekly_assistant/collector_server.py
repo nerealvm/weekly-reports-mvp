@@ -30,6 +30,7 @@ from weekly_assistant.services.active_sheet import (
     column_letter as active_column_letter,
     ensure_active_week_columns,
     is_active_sheet_csv,
+    normalize_for_match,
     row_to_normalized_raw,
     week_label_for_date,
 )
@@ -847,6 +848,27 @@ def _read_topic_id_map(adapter: GoogleSheetsAdapter, target_sheet: str, columns)
     return id_map
 
 
+def _read_topic_title_map(adapter: GoogleSheetsAdapter, target_sheet: str, columns) -> dict:
+    """Map topic title -> physical sheet row, for rows that carry no Topic ID yet.
+
+    Only titles that appear exactly once are usable; ambiguous ones are dropped so
+    a duplicate title can never silently steer a write to the wrong row.
+    """
+    if not getattr(columns, "topic_col", None):
+        return {}
+    letter = active_column_letter(columns.topic_col)
+    try:
+        values = adapter.read_values(f"'{target_sheet}'!{letter}1:{letter}")
+    except Exception:
+        return {}
+    seen: dict[str, list[int]] = {}
+    for physical_row, cells in enumerate(values or [], start=1):
+        value = str(cells[0]).strip() if cells else ""
+        if value:
+            seen.setdefault(normalize_for_match(value), []).append(physical_row)
+    return {title: rows[0] for title, rows in seen.items() if len(rows) == 1}
+
+
 def _write_active_session(adapter: GoogleSheetsAdapter, session: dict) -> dict:
     target_sheet = session.get("metadata", {}).get("active_sheet", {}).get("sheet_name") or session.get("sheet_name") or ACTIVE_SHEET_NAME
     week_label = _active_session_week_label(session)
@@ -858,6 +880,7 @@ def _write_active_session(adapter: GoogleSheetsAdapter, session: dict) -> dict:
     id_map = _read_topic_id_map(adapter, target_sheet, columns)
 
     updated = []
+    unresolved: list[dict] = []
     changed_rows = [row for row in session["rows"] if row.get("changed") or row.get("is_new")]
     new_rows = [row for row in changed_rows if row.get("is_new")]
     if new_rows:
@@ -897,7 +920,19 @@ def _write_active_session(adapter: GoogleSheetsAdapter, session: dict) -> dict:
         pending.append((row, updates))
 
     if pending:
-        target_rows = {row["topic_id"]: id_map.get(row["topic_id"], row["row_number"]) for row, _ in pending}
+        # The CSV export drops rows, so row["row_number"] drifts from the physical
+        # sheet row and must never address a write: a stale number overwrites a
+        # different topic. Resolve by Topic ID, then by unique title, else skip.
+        title_map = _read_topic_title_map(adapter, target_sheet, columns)
+        target_rows = {}
+        for row, _updates in pending:
+            physical = id_map.get(row["topic_id"]) or title_map.get(normalize_for_match(row.get("topic_title", "")))
+            if physical:
+                target_rows[row["topic_id"]] = physical
+            else:
+                unresolved.append({"topic_id": row["topic_id"], "topic_title": row.get("topic_title", "")})
+        if unresolved:
+            pending = [item for item in pending if item[0]["topic_id"] in target_rows]
         batch_data = []
         for row, updates in pending:
             tr = target_rows[row["topic_id"]]
@@ -942,6 +977,7 @@ def _write_active_session(adapter: GoogleSheetsAdapter, session: dict) -> dict:
         "week_label": week_label,
         "created_week_columns": list(created_week_columns),
         "collapsed_old_weeks": collapsed,
+        "unresolved": unresolved,
     }
 
 

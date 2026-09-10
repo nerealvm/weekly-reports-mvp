@@ -52,6 +52,10 @@ def apply_import(settings, args, payload_text: str) -> str:
     created = written.get("created_week_columns") or []
     if created:
         lines.append(f"Создано колонок недели: {', '.join(map(str, created))}")
+    stuck = written.get("unresolved") or []
+    if stuck:
+        names = ", ".join(f"{i.get('topic_id') or '?'} {i.get('topic_title') or ''}".strip() for i in stuck)
+        lines.append(f"\nНе нашёл строку в листе, пропустил ({len(stuck)}): {names}")
     unmatched = imported.get("unmatched") or []
     if unmatched:
         names = ", ".join(

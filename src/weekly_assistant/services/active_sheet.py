@@ -78,7 +78,7 @@ def is_active_sheet_csv(path: str | Path) -> bool:
     if not rows:
         return False
     first = rows[0]
-    normalized = " ".join(_normalize(cell) for cell in first)
+    normalized = " ".join(normalize_for_match(cell) for cell in first)
     return (
         "тема" in normalized
         and PREVIOUS_STATUS_GROUP in normalized
@@ -424,17 +424,17 @@ def _sheet_id(adapter: GoogleSheetsAdapter, title: str) -> int:
 
 
 def _find_header_column(row: list[str], query: str) -> int:
-    normalized_query = _normalize(query)
+    normalized_query = normalize_for_match(query)
     for index, value in enumerate(row, start=1):
-        if normalized_query in _normalize(value):
+        if normalized_query in normalize_for_match(value):
             return index
     raise ValueError(f"Could not find header column containing: {query}")
 
 
 def _find_optional_header_column(row: list[str], query: str) -> int | None:
-    normalized_query = _normalize(query)
+    normalized_query = normalize_for_match(query)
     for index, value in enumerate(row, start=1):
-        if _normalize(value) == normalized_query:
+        if normalize_for_match(value) == normalized_query:
             return index
     return None
 
@@ -523,7 +523,7 @@ def _first_non_empty(*values: str) -> str:
 
 
 def _lifecycle_for_section(section: str) -> str:
-    normalized = _normalize(section)
+    normalized = normalize_for_match(section)
     if "архив" in normalized:
         return Lifecycle.ARCHIVED.value
     if "закры" in normalized:
@@ -534,7 +534,7 @@ def _lifecycle_for_section(section: str) -> str:
 
 
 def _movement_type_for_result(value: str) -> str:
-    normalized = _normalize(value)
+    normalized = normalize_for_match(value)
     if not normalized:
         return MovementType.UNCLEAR.value
     if "без нового движения" in normalized or "без движения" in normalized:
@@ -617,7 +617,7 @@ def _dedupe_updates(updates: list[tuple[int, str, str]]) -> list[tuple[int, str,
     return list(by_column.values())
 
 
-def _normalize(value: str) -> str:
+def normalize_for_match(value: str) -> str:
     return re.sub(r"\s+", " ", str(value or "").casefold()).strip()
 
 

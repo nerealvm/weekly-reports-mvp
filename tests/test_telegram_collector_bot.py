@@ -80,3 +80,31 @@ class BotGuardsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RowResolutionTest(unittest.TestCase):
+    """A session row_number comes from the CSV export, which drops rows and so
+    drifts from the physical sheet row. It must never address a write."""
+
+    def test_title_map_ignores_duplicate_titles(self):
+        from weekly_assistant.collector_server import _read_topic_title_map
+
+        class Adapter:
+            def read_values(self, a1):
+                return [["Тема"], ["Альфа"], ["Бета"], ["Альфа"]]
+
+        class Cols:
+            topic_col = 3
+
+        got = _read_topic_title_map(Adapter(), "Активные", Cols())
+        self.assertIn("бета", got)
+        self.assertEqual(got["бета"], 3)
+        self.assertNotIn("альфа", got, "duplicate titles must not resolve to a row")
+
+    def test_title_map_is_empty_without_a_title_column(self):
+        from weekly_assistant.collector_server import _read_topic_title_map
+
+        class Cols:
+            topic_col = None
+
+        self.assertEqual(_read_topic_title_map(object(), "Активные", Cols()), {})
