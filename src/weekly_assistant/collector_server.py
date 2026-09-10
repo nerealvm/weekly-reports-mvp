@@ -549,7 +549,13 @@ class CollectorStore:
         if self.config.source_csv:
             shutil.copyfile(self.config.source_csv, self.source_path)
         else:
-            download_sheet_csv(self.config.spreadsheet_id, self.config.gid, self.source_path)
+            try:
+                download_sheet_csv(self.config.spreadsheet_id, self.config.gid, self.source_path)
+            except Exception as exc:
+                if self.source_path.exists():
+                    print(f"[warn] Download failed ({exc}); using cached source.csv", flush=True)
+                else:
+                    raise
 
         if is_active_sheet_csv(self.source_path):
             week_label = week_label_for_date(self.config.week_end)

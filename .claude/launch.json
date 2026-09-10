@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "collector",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": [
+        "-m", "weekly_assistant.collector_server",
+        "--week-start", "2026-09-04",
+        "--week-end", "2026-09-11",
+        "--port", "8799",
+        "--sheet-name", "Активные",
+        "--spreadsheet-id", "14vjMSr2YaGRcD9Ud1zrDvULhEIE6o5kmZkKfdxarSFs",
+        "--gid", "0",
+        "--session-dir", "/tmp/wc-live"
+      ],
+      "port": 8799
+    }
+  ]
+}
