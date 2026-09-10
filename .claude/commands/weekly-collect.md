@@ -7,10 +7,10 @@
 Выполни команду и прочитай CSV:
 
 ```bash
-cd /Users/svm/Vibe/WeeklyReports && source .venv/bin/activate && weekly-assistant inspect --csv exports/2026-05-07-first-run/source.csv
+cd /Users/svm/Documents/Claude/Code/WeeklyReports && source .venv/bin/activate && weekly-assistant inspect --csv exports/2026-05-07-first-run/source.csv
 ```
 
-Затем прочитай сам CSV-файл: `/Users/svm/Vibe/WeeklyReports/exports/2026-05-07-first-run/source.csv`
+Затем прочитай сам CSV-файл: `/Users/svm/Documents/Claude/Code/WeeklyReports/exports/2026-05-07-first-run/source.csv`
 
 Если пользователь передал другой путь в аргументах к команде, используй его.
 
