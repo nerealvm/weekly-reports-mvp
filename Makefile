@@ -1,8 +1,9 @@
 PYTHONPATH := src
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 SAMPLE := tests/fixtures/weekly_mvp_sample.csv
-_THIS_FRI := $(shell $(PYTHON) -c "from datetime import date,timedelta; t=date.today(); d=(4-t.weekday())%7; print((t+timedelta(days=d)).strftime('%Y-%m-%d'))")
-_PREV_FRI := $(shell $(PYTHON) -c "from datetime import date,timedelta; t=date.today(); d=(4-t.weekday())%7; print((t+timedelta(days=d)-timedelta(days=7)).strftime('%Y-%m-%d'))")
+_WEEK := $(shell PYTHONPATH=src $(PYTHON) -c "from weekly_assistant.utils.weeks import current_week_bounds; s,e=current_week_bounds(); print(s,e)")
+_PREV_FRI := $(word 1,$(_WEEK))
+_THIS_FRI := $(word 2,$(_WEEK))
 WEEK_START ?= $(_PREV_FRI)
 WEEK_END ?= $(_THIS_FRI)
 COLLECTOR_PORT ?= 8765
@@ -14,7 +15,7 @@ TRANSFER_APPLY ?=
 TRANSFER_WEEK_LABEL ?=
 TRANSFER_ARGS ?=
 
-.PHONY: test status inspect sample-flow live-full-test singularity-context collector viewer transfer-active pages-export
+.PHONY: test status inspect sample-flow live-full-test singularity-context collector bot viewer transfer-active pages-export
 
 test:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m unittest discover -s tests
@@ -42,6 +43,9 @@ live-full-test:
 singularity-context:
 	mkdir -p /tmp/weekly-live-test
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m weekly_assistant.cli singularity-weekly-context --week-start $(WEEK_START) --week-end $(WEEK_END) --out /tmp/weekly-live-test/singularity_context.md
+
+bot:
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m weekly_assistant.telegram_collector_bot --gid $(COLLECTOR_GID) --sheet-name "$(COLLECTOR_SHEET_NAME)"
 
 collector:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m weekly_assistant.collector_server --week-start $(WEEK_START) --week-end $(WEEK_END) --port $(COLLECTOR_PORT) --gid $(COLLECTOR_GID) --sheet-name "$(COLLECTOR_SHEET_NAME)" $(COLLECTOR_REFRESH)

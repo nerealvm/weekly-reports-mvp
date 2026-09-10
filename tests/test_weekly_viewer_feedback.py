@@ -14,6 +14,7 @@ def _settings() -> Settings:
         google_oauth_access_token="",
         google_application_credentials="",
         telegram_bot_token="",
+        telegram_allowed_user_id="",
         telegram_api_id="",
         telegram_api_hash="",
         telegram_session_name="",

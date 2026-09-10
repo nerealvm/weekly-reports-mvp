@@ -11,6 +11,7 @@ class Settings:
     google_oauth_access_token: str
     google_application_credentials: str
     telegram_bot_token: str
+    telegram_allowed_user_id: str
     telegram_api_id: str
     telegram_api_hash: str
     telegram_session_name: str
@@ -31,6 +32,7 @@ def load_settings(env_file: str | Path = ".env") -> Settings:
         google_oauth_access_token=env.get("GOOGLE_OAUTH_ACCESS_TOKEN", ""),
         google_application_credentials=env.get("GOOGLE_APPLICATION_CREDENTIALS", ""),
         telegram_bot_token=env.get("TELEGRAM_BOT_TOKEN", ""),
+        telegram_allowed_user_id=env.get("TELEGRAM_ALLOWED_USER_ID", ""),
         telegram_api_id=env.get("TELEGRAM_API_ID", ""),
         telegram_api_hash=env.get("TELEGRAM_API_HASH", ""),
         telegram_session_name=env.get("TELEGRAM_SESSION_NAME", "weekly_assistant"),
