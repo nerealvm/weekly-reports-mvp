@@ -14,6 +14,7 @@ from weekly_assistant.collector_server import CollectorConfig, CollectorStore, _
 from weekly_assistant.config.settings import load_settings
 from weekly_assistant.integrations.telegram_bot import TelegramBotAdapter
 from weekly_assistant.services.active_sheet import ACTIVE_SHEET_NAME, week_label_for_date
+from weekly_assistant.utils.http import JsonHttpClient
 from weekly_assistant.utils.weeks import current_week_bounds
 
 HELP_TEXT = (
@@ -146,7 +147,9 @@ def main() -> int:
         return 1
     args.allowed_user_id = settings.telegram_allowed_user_id
 
-    adapter = TelegramBotAdapter(settings)
+    # The HTTP read timeout must outlast the long poll, or every idle poll
+    # aborts client-side and the bot listens in bursts instead of continuously.
+    adapter = TelegramBotAdapter(settings, JsonHttpClient(timeout_seconds=args.poll_timeout + 15))
     me = adapter.get_me().get("result", {})
     print(f"[bot] listening as @{me.get('username')} for user_id={args.allowed_user_id}", flush=True)
 
